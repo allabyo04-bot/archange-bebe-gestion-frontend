@@ -40,8 +40,6 @@ export default function Login() {
 
         <div className="brand-copy">
           <span className="tagline">Pour Le Bonheur Des Boudchou</span>
-          <h1>La gestion de vos boutiques, avec la tendresse d'Archange Bébé.</h1>
-          <p>Stock, ventes, cartes cadeaux et listes cadeaux — tout au même endroit, pensé pour votre équipe.</p>
         </div>
 
         <svg className="brand-illustration" width="140" height="110" viewBox="0 0 140 110" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -89,7 +87,7 @@ export default function Login() {
             </button>
           </form>
 
-          <p className="login-footnote">Archange Bébé — Gestion Commerciale</p>
+          <p className="login-footnote">Gestion Commerciale et CRM <em>by Phil</em></p>
         </div>
       </div>
     </div>

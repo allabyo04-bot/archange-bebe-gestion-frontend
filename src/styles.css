@@ -1,17 +1,29 @@
+@import url('https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Nunito:wght@400;600;700;800&display=swap');
+
 :root {
-  --cream: #FBF3DD;
-  --cream-deep: #F5E9C8;
-  --brown-ink: #4A2C17;
-  --brown-deep: #2E1A0D;
-  --brown-soft: #7A5233;
-  --gold-light: #F0C572;
-  --gold-mid: #D9A144;
-  --gold-deep: #B87F2C;
+  /* Fonds */
+  --cream: #FAF7F2;        /* Ivoire doux — fond général */
+  --cream-deep: #E9EEF6;   /* Bleu poudré — fonds de carte, survols discrets */
+
+  /* Texte */
+  --brown-ink: #1F2E45;    /* Encre nuit — texte principal */
+  --brown-deep: #1B3A63;   /* Bleu profond — barre latérale, titres forts */
+  --brown-soft: #5B6B85;   /* Texte discret / secondaire */
+
+  /* Accent principal — Bleu Archange */
+  --gold-light: #8FB0DE;
+  --gold-mid: #3D66A3;
+  --gold-deep: #2C4C7C;
+
+  /* Accent secondaire — Bordeaux Boudchou (à utiliser avec parcimonie) */
+  --bordeaux-tendre: #A8455C;
+  --bordeaux-deep: #7D2138;
+
   --white: #FFFFFF;
   --error: #B23A2E;
 
-  --font-display: Georgia, 'Iowan Old Style', 'Palatino Linotype', serif;
-  --font-body: -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  --font-display: 'Fredoka', Georgia, 'Iowan Old Style', serif;
+  --font-body: 'Nunito', -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
 }
 
 * { box-sizing: border-box; }

@@ -33,22 +33,21 @@ export default function Login() {
 
         <div className="brand-mark">
           <div className="u-badge">
-            <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M6 4v9a6 6 0 0 0 12 0V4" stroke="#4A2C17" strokeWidth="2" strokeLinecap="round" />
-            </svg>
+            <img src="/logo-archange-bebe.png" alt="Archange Bébé" />
           </div>
-          <span className="wordmark">Jesma U</span>
+          <span className="wordmark">Archange Bébé</span>
         </div>
 
         <div className="brand-copy">
-          <h1>La gestion de votre boutique, avec la douceur de Jesma U.</h1>
+          <span className="tagline">Pour Le Bonheur Des Boudchou</span>
+          <h1>La gestion de vos boutiques, avec la tendresse d'Archange Bébé.</h1>
           <p>Stock, ventes, cartes cadeaux et listes cadeaux — tout au même endroit, pensé pour votre équipe.</p>
         </div>
 
         <svg className="brand-illustration" width="140" height="110" viewBox="0 0 140 110" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <path d="M20 95c10-6 16-16 16-28 0-14-10-24-10-24" stroke="#4A2C17" strokeOpacity="0.5" strokeWidth="1.5" strokeLinecap="round" />
-          <circle cx="70" cy="46" r="16" stroke="#4A2C17" strokeOpacity="0.6" strokeWidth="1.5" />
-          <path d="M55 70c0-10 7-16 15-16s15 6 15 16" stroke="#4A2C17" strokeOpacity="0.6" strokeWidth="1.5" strokeLinecap="round" />
+          <path d="M20 95c10-6 16-16 16-28 0-14-10-24-10-24" stroke="#FFFFFF" strokeOpacity="0.55" strokeWidth="1.5" strokeLinecap="round" />
+          <circle cx="70" cy="46" r="16" stroke="#FFFFFF" strokeOpacity="0.6" strokeWidth="1.5" />
+          <path d="M55 70c0-10 7-16 15-16s15 6 15 16" stroke="#FFFFFF" strokeOpacity="0.6" strokeWidth="1.5" strokeLinecap="round" />
         </svg>
       </div>
 
@@ -90,7 +89,7 @@ export default function Login() {
             </button>
           </form>
 
-          <p className="login-footnote">Jesma U — Gestion Commerciale</p>
+          <p className="login-footnote">Archange Bébé — Gestion Commerciale</p>
         </div>
       </div>
     </div>

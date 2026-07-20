@@ -37,7 +37,10 @@ export default function Dashboard() {
   return (
     <div style={styles.page}>
       <aside style={styles.sidebar}>
-        <div style={styles.marque}>JESMA U</div>
+        <div style={styles.marque}>
+          <img src="/logo-archange-bebe.png" alt="Archange Bébé" style={styles.logoMarque} />
+          <span>ARCHANGE BÉBÉ</span>
+        </div>
 
         <nav style={styles.nav}>
           {LIENS.filter((lien) => !lien.adminSeulement || estAdmin).map((lien) => (
@@ -55,22 +58,22 @@ export default function Dashboard() {
       </aside>
 
       <main style={styles.contenu}>
-        <h1 style={styles.titre}>Bonjour, {utilisateur?.nomComplet || 'Victoria'} 👋</h1>
+        <h1 style={styles.titre}>Bonjour, {utilisateur?.nomComplet || 'Administrateur'} 👋</h1>
 
-        {erreur && <p style={{ color: '#B23A2E' }}>{erreur}</p>}
+        {erreur && <p style={{ color: 'var(--error)' }}>{erreur}</p>}
 
         {dashboard && (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 16, maxWidth: 800 }}>
-            <div style={{ background: '#FBF3DD', padding: 20, borderRadius: 12 }}>
+            <div style={{ background: 'var(--cream-deep)', padding: 20, borderRadius: 12 }}>
               <div style={{ fontSize: 13, opacity: 0.7 }}>Ventes du jour</div>
               <div style={{ fontSize: 24, fontWeight: 700 }}>{dashboard.ventes.total.toLocaleString('fr-FR')} F</div>
               <div style={{ fontSize: 12, opacity: 0.6 }}>{dashboard.ventes.nombre} vente(s)</div>
             </div>
-            <div style={{ background: '#FBF3DD', padding: 20, borderRadius: 12 }}>
+            <div style={{ background: 'var(--cream-deep)', padding: 20, borderRadius: 12 }}>
               <div style={{ fontSize: 13, opacity: 0.7 }}>Alertes stock</div>
               <div style={{ fontSize: 24, fontWeight: 700 }}>{dashboard.alertesStock.length}</div>
             </div>
-            <div style={{ background: '#FBF3DD', padding: 20, borderRadius: 12 }}>
+            <div style={{ background: 'var(--cream-deep)', padding: 20, borderRadius: 12 }}>
               <div style={{ fontSize: 13, opacity: 0.7 }}>Demandes de remise</div>
               <div style={{ fontSize: 24, fontWeight: 700 }}>{dashboard.demandesRemiseEnAttente}</div>
             </div>
@@ -86,22 +89,26 @@ export default function Dashboard() {
 }
 
 const styles = {
-  page: { display: 'flex', minHeight: '100vh', fontFamily: 'sans-serif', color: '#4A2C17' },
+  page: { display: 'flex', minHeight: '100vh', fontFamily: 'var(--font-body)', color: 'var(--brown-ink)' },
   sidebar: {
-    width: 220, background: '#FBF3DD', padding: '24px 16px', display: 'flex', flexDirection: 'column',
-    gap: 8, flexShrink: 0, borderRight: '1px solid #EAD9AE',
+    width: 220, background: 'var(--cream-deep)', padding: '24px 16px', display: 'flex', flexDirection: 'column',
+    gap: 8, flexShrink: 0, borderRight: '1px solid var(--gold-light)',
   },
-  marque: { fontWeight: 700, fontSize: 18, letterSpacing: 1, marginBottom: 20, color: '#4A2C17' },
+  marque: {
+    display: 'flex', alignItems: 'center', gap: 10, fontFamily: 'var(--font-display)',
+    fontWeight: 600, fontSize: 15, letterSpacing: 0.5, marginBottom: 20, color: 'var(--brown-deep)',
+  },
+  logoMarque: { width: 32, height: 32, objectFit: 'contain', borderRadius: 6, background: 'var(--white)', padding: 2 },
   nav: { display: 'flex', flexDirection: 'column', gap: 8, flex: 1 },
   boutonNav: {
-    padding: '10px 14px', borderRadius: 8, border: '1px solid #D9A144', background: '#D9A144',
-    color: '#FFFFFF', cursor: 'pointer', fontWeight: 600, textAlign: 'left', fontSize: 14,
+    padding: '10px 14px', borderRadius: 8, border: '1px solid var(--gold-deep)', background: 'var(--gold-deep)',
+    color: 'var(--white)', cursor: 'pointer', fontWeight: 600, textAlign: 'left', fontSize: 14,
   },
   boutonDeconnexion: {
-    padding: '10px 14px', borderRadius: 8, border: '1px solid #D9A144', background: 'transparent',
-    cursor: 'pointer', textAlign: 'left', fontSize: 14, marginTop: 12,
+    padding: '10px 14px', borderRadius: 8, border: '1px solid var(--gold-deep)', background: 'transparent',
+    cursor: 'pointer', textAlign: 'left', fontSize: 14, marginTop: 12, color: 'var(--brown-ink)',
   },
-  pied: { marginTop: 20, fontSize: 11, opacity: 0.45, textAlign: 'center' },
+  pied: { marginTop: 20, fontSize: 11, opacity: 0.5, textAlign: 'center' },
   contenu: { flex: 1, padding: 32 },
-  titre: { marginTop: 0, marginBottom: 24 },
+  titre: { marginTop: 0, marginBottom: 24, fontFamily: 'var(--font-display)', fontWeight: 600 },
 };

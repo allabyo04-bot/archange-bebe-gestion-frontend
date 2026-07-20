@@ -30,7 +30,7 @@ export default function EcranClient() {
         <div style={styles.totalMerci}>
           {Number(venteValidee.totalNet).toLocaleString('fr-FR')} F
         </div>
-        <p style={styles.sousTitreMerci}>À bientôt chez Jesma U</p>
+        <p style={styles.sousTitreMerci}>À bientôt chez Archange Bébé</p>
       </div>
     );
   }
@@ -43,14 +43,14 @@ export default function EcranClient() {
   return (
     <div style={styles.page}>
       <header style={styles.entete}>
-        <div style={styles.logoRond}>U</div>
-        <h1 style={styles.titrePrincipal}>Jesma U</h1>
+        <img src="/logo-archange-bebe.png" alt="Archange Bébé" style={styles.logoRond} />
+        <h1 style={styles.titrePrincipal}>Archange Bébé</h1>
       </header>
 
       {panier.length === 0 ? (
         <div style={styles.attenteVide}>
-          <p style={styles.texteAttente}>Bienvenue chez Jesma U</p>
-          <p style={styles.sousTexteAttente}>La gestion de votre boutique, avec la douceur de Jesma U.</p>
+          <p style={styles.texteAttente}>Bienvenue chez Archange Bébé</p>
+          <p style={styles.sousTexteAttente}>Pour Le Bonheur Des Boudchou.</p>
         </div>
       ) : (
         <>
@@ -101,21 +101,20 @@ const styles = {
     background: 'var(--brown-deep)', color: 'var(--cream)',
   },
   logoRond: {
-    width: 48, height: 48, borderRadius: '50%', background: 'var(--gold-deep)',
-    display: 'flex', alignItems: 'center', justifyContent: 'center',
-    fontFamily: 'var(--font-display)', fontSize: 22, fontWeight: 700, color: 'var(--white)',
+    width: 48, height: 48, borderRadius: 12, background: 'var(--white)',
+    objectFit: 'contain', padding: 4,
   },
-  titrePrincipal: { fontFamily: 'var(--font-display)', margin: 0, fontSize: 28 },
+  titrePrincipal: { fontFamily: 'var(--font-display)', fontWeight: 600, margin: 0, fontSize: 28 },
   attenteVide: {
     flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center',
     justifyContent: 'center', textAlign: 'center', padding: 40,
   },
-  texteAttente: { fontFamily: 'var(--font-display)', fontSize: 36, margin: 0, color: 'var(--gold-deep)' },
-  sousTexteAttente: { fontSize: 16, color: 'var(--brown-soft)', marginTop: 12 },
+  texteAttente: { fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 36, margin: 0, color: 'var(--gold-deep)' },
+  sousTexteAttente: { fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 18, color: 'var(--bordeaux-deep)', marginTop: 12 },
   listeArticles: { flex: 1, overflowY: 'auto', padding: '20px 32px', display: 'flex', flexDirection: 'column', gap: 14 },
   carteArticle: {
     display: 'flex', alignItems: 'center', gap: 16, background: 'var(--white)',
-    borderRadius: 14, padding: 14, boxShadow: '0 2px 8px rgba(74,44,23,0.1)',
+    borderRadius: 14, padding: 14, boxShadow: '0 2px 8px rgba(31,46,69,0.1)',
   },
   photoArticle: { width: 64, height: 64, borderRadius: 10, objectFit: 'cover', flexShrink: 0 },
   placeholderPhoto: {
@@ -134,7 +133,7 @@ const styles = {
     justifyContent: 'center', background: 'var(--gold-deep)', color: 'var(--white)', textAlign: 'center',
   },
   iconeMerci: { fontSize: 72, marginBottom: 16 },
-  titreMerci: { fontFamily: 'var(--font-display)', fontSize: 40, margin: 0 },
+  titreMerci: { fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 40, margin: 0 },
   totalMerci: { fontSize: 56, fontWeight: 800, marginTop: 24 },
   sousTitreMerci: { fontSize: 18, marginTop: 16, opacity: 0.9 },
 };

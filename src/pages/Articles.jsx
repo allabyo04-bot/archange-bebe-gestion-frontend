@@ -221,12 +221,6 @@ export default function Articles() {
   );
 }
 
-function joursRestantsPeremption(datePeremption) {
-  if (!datePeremption) return null;
-  const diff = new Date(datePeremption) - new Date();
-  return Math.ceil(diff / (1000 * 60 * 60 * 24));
-}
-
 function CarteArticle({ article, onPhotoMiseAJour, onCodeBarreGenere, onModifier }) {
   const [envoiEnCours, setEnvoiEnCours] = useState(false);
   const [erreurPhoto, setErreurPhoto] = useState('');
@@ -261,8 +255,6 @@ function CarteArticle({ article, onPhotoMiseAJour, onCodeBarreGenere, onModifier
     }
   }
 
-  const joursRestants = joursRestantsPeremption(article.datePeremption);
-
   return (
     <div style={styles.carte}>
       <label style={styles.zonePhoto}>
@@ -296,13 +288,6 @@ function CarteArticle({ article, onPhotoMiseAJour, onCodeBarreGenere, onModifier
             <span style={styles.badgeAlerte}> ⚠ faible</span>
           )}
         </div>
-        {article.datePeremption && (
-          <div style={{ ...styles.badgePeremption, color: joursRestants <= 30 ? 'var(--error)' : 'var(--brown-soft)' }}>
-            {joursRestants < 0
-              ? `⚠ Périmé depuis ${Math.abs(joursRestants)} j`
-              : `Péremption : ${new Date(article.datePeremption).toLocaleDateString('fr-FR')}`}
-          </div>
-        )}
         {article.codeBarre ? (
           <div style={styles.codeBarreTexte}>
             {article.codeBarre}{article.codeBarreGenere ? ' (généré)' : ''}
@@ -330,9 +315,6 @@ function FormulaireArticle({ familles, articleEnEdition, onFermer, onFamillesMis
   const [prixAchat, setPrixAchat] = useState(articleEnEdition?.prixAchat ?? '');
   const [prixVente, setPrixVente] = useState(articleEnEdition?.prixVente ?? '');
   const [seuilAlerte, setSeuilAlerte] = useState(articleEnEdition ? String(articleEnEdition.seuilAlerte) : '5');
-  const [datePeremption, setDatePeremption] = useState(
-    articleEnEdition?.datePeremption ? articleEnEdition.datePeremption.slice(0, 10) : ''
-  );
   const [erreur, setErreur] = useState('');
   const [envoiEnCours, setEnvoiEnCours] = useState(false);
 
@@ -409,7 +391,6 @@ function FormulaireArticle({ familles, articleEnEdition, onFermer, onFamillesMis
           prixAchat: prixAchat !== '' ? Number(prixAchat) : 0,
           prixVente: Number(prixVente),
           seuilAlerte: Number(seuilAlerte),
-          datePeremption: datePeremption || null,
         });
         onModifie(article);
       } else {
@@ -422,7 +403,6 @@ function FormulaireArticle({ familles, articleEnEdition, onFermer, onFamillesMis
           prixAchat: prixAchat ? Number(prixAchat) : 0,
           prixVente: Number(prixVente),
           seuilAlerte: Number(seuilAlerte),
-          datePeremption: datePeremption || undefined,
         });
         onCree(article);
       }
@@ -569,11 +549,6 @@ function FormulaireArticle({ familles, articleEnEdition, onFermer, onFamillesMis
           <input type="number" style={styles.champInput} value={seuilAlerte} onChange={(e) => setSeuilAlerte(e.target.value)} />
         </label>
 
-        <label style={styles.champLabel}>
-          Date de péremption (optionnel — surtout pour les cosmétiques)
-          <input type="date" style={styles.champInput} value={datePeremption} onChange={(e) => setDatePeremption(e.target.value)} />
-        </label>
-
         <div style={styles.boutonsFormulaire}>
           <button type="button" onClick={onFermer} style={styles.boutonAnnuler}>Annuler</button>
           <button type="submit" disabled={envoiEnCours} style={styles.boutonValider}>
@@ -605,7 +580,6 @@ const styles = {
   prix: { fontSize: 16, fontWeight: 700, color: 'var(--gold-deep)', marginBottom: 4 },
   stock: { fontSize: 12, color: 'var(--brown-soft)' },
   badgeAlerte: { color: 'var(--error)', fontWeight: 600 },
-  badgePeremption: { fontSize: 11, fontWeight: 600, marginTop: 4 },
   codeBarreTexte: { fontSize: 11, color: 'var(--brown-soft)', marginTop: 6, fontFamily: 'monospace' },
   boutonGenerer: { marginTop: 6, padding: '6px 10px', borderRadius: 6, border: '1px solid var(--gold-mid)', background: 'transparent', color: 'var(--brown-ink)', cursor: 'pointer', fontSize: 11 },
   overlay: { position: 'fixed', inset: 0, background: 'rgba(46,26,13,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20, zIndex: 100 },

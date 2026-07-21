@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Nunito:wght@400;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700;800&family=Nunito:wght@400;600;700;800&display=swap');
 
 :root {
   /* Fonds */
@@ -10,19 +10,19 @@
   --brown-deep: #1B3A63;   /* Bleu profond — barre latérale, titres forts */
   --brown-soft: #5B6B85;   /* Texte discret / secondaire */
 
-  /* Accent principal — Bleu Archange */
-  --gold-light: #8FB0DE;
-  --gold-mid: #3D66A3;
-  --gold-deep: #2C4C7C;
+  /* Accent principal — Bleu Archange (aligné sur le vrai logo) */
+  --gold-light: #8FAEE6;
+  --gold-mid: #4C72C4;
+  --gold-deep: #2E4E9E;
 
-  /* Accent secondaire — Bordeaux Boudchou (à utiliser avec parcimonie) */
-  --bordeaux-tendre: #A8455C;
-  --bordeaux-deep: #7D2138;
+  /* Accent secondaire — Bordeaux/Prune Boudchou (aligné sur le vrai logo) */
+  --bordeaux-tendre: #B2567F;
+  --bordeaux-deep: #8E3159;
 
   --white: #FFFFFF;
   --error: #B23A2E;
 
-  --font-display: 'Fredoka', Georgia, 'Iowan Old Style', serif;
+  --font-display: 'Poppins', Georgia, 'Iowan Old Style', serif;
   --font-body: 'Nunito', -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
 }
 

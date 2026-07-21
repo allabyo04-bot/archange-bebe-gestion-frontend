@@ -1,8 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { appelApi, uploaderPhotoArticle, recupererHtmlAvecAuth } from '../lib/api';
-
-const BASE_URL = import.meta.env.VITE_API_URL || 'https://jesma-u-gestion-backend-production.up.railway.app/api';
+import { appelApi, uploaderPhotoArticle, envoyerEtRecupererHtmlAvecAuth } from '../lib/api';
 
 export default function Articles() {
   const navigate = useNavigate();
@@ -13,6 +11,14 @@ export default function Articles() {
   const [formulaireOuvert, setFormulaireOuvert] = useState(false);
   const [articleEnEdition, setArticleEnEdition] = useState(null);
   const [nombreAImprimer, setNombreAImprimer] = useState(0);
+
+  // --- Panneau d'impression d'étiquettes ---
+  const [panneauEtiquettesOuvert, setPanneauEtiquettesOuvert] = useState(false);
+  const [articlesAImprimer, setArticlesAImprimer] = useState([]);
+  const [quantitesEtiquettes, setQuantitesEtiquettes] = useState({});
+  const [chargementEtiquettes, setChargementEtiquettes] = useState(false);
+  const [erreurEtiquettes, setErreurEtiquettes] = useState('');
+  const [impressionEnCours, setImpressionEnCours] = useState(false);
 
   useEffect(() => {
     chargerDonnees();
@@ -45,14 +51,55 @@ export default function Articles() {
     rafraichirCompteurImpression();
   }
 
-  async function ouvrirImpressionEtiquettes() {
+  async function ouvrirPanneauEtiquettes() {
+    setPanneauEtiquettesOuvert(true);
+    setChargementEtiquettes(true);
+    setErreurEtiquettes('');
     try {
-      const html = await recupererHtmlAvecAuth('/articles/a-imprimer/etiquettes');
+      const liste = await appelApi('GET', '/articles/a-imprimer');
+      setArticlesAImprimer(liste);
+      const quantitesInitiales = {};
+      liste.forEach((a) => {
+        quantitesInitiales[a.id] = a.quantiteAImprimer > 0 ? a.quantiteAImprimer : 1;
+      });
+      setQuantitesEtiquettes(quantitesInitiales);
+    } catch (err) {
+      setErreurEtiquettes(err.message);
+    } finally {
+      setChargementEtiquettes(false);
+    }
+  }
+
+  function changerQuantiteEtiquette(articleId, valeur) {
+    const quantite = Math.max(0, Number(valeur) || 0);
+    setQuantitesEtiquettes((prec) => ({ ...prec, [articleId]: quantite }));
+  }
+
+  async function lancerImpressionEtiquettes() {
+    setErreurEtiquettes('');
+    setImpressionEnCours(true);
+    try {
+      const lignes = articlesAImprimer
+        .map((a) => ({ articleId: a.id, quantite: quantitesEtiquettes[a.id] || 0 }))
+        .filter((l) => l.quantite > 0);
+
+      if (lignes.length === 0) {
+        setErreurEtiquettes('Indique au moins une quantité supérieure à 0.');
+        setImpressionEnCours(false);
+        return;
+      }
+
+      const html = await envoyerEtRecupererHtmlAvecAuth('/articles/a-imprimer/etiquettes', { lignes });
       const fenetre = window.open('', '_blank');
       fenetre.document.write(html);
       fenetre.document.close();
+
+      setPanneauEtiquettesOuvert(false);
+      rafraichirCompteurImpression();
     } catch (err) {
-      alert("Impossible d'ouvrir les étiquettes : " + err.message);
+      setErreurEtiquettes(err.message);
+    } finally {
+      setImpressionEnCours(false);
     }
   }
 
@@ -75,7 +122,7 @@ export default function Articles() {
         <h1 style={styles.titre}>Articles</h1>
         <div style={{ display: 'flex', gap: 10 }}>
           {nombreAImprimer > 0 && (
-            <button onClick={ouvrirImpressionEtiquettes} style={styles.boutonImprimer}>
+            <button onClick={ouvrirPanneauEtiquettes} style={styles.boutonImprimer}>
               🖨️ Étiquettes à imprimer ({nombreAImprimer})
             </button>
           )}
@@ -119,8 +166,65 @@ export default function Articles() {
           }}
         />
       )}
+
+      {panneauEtiquettesOuvert && (
+        <div style={styles.overlay} onClick={() => setPanneauEtiquettesOuvert(false)}>
+          <div style={styles.panneauEtiquettes} onClick={(e) => e.stopPropagation()}>
+            <h2 style={styles.titreFormulaire}>Étiquettes à imprimer</h2>
+            <p style={{ fontSize: 13, color: 'var(--brown-soft)', marginTop: -8 }}>
+              La quantité proposée correspond à ce qui a été mis en stock — modifie-la si besoin avant d'imprimer.
+            </p>
+
+            {erreurEtiquettes && <p style={{ color: 'var(--error)' }}>{erreurEtiquettes}</p>}
+            {chargementEtiquettes && <p style={{ color: 'var(--brown-soft)' }}>Chargement…</p>}
+
+            {!chargementEtiquettes && (
+              <div style={styles.listeEtiquettes}>
+                {articlesAImprimer.map((a) => (
+                  <div key={a.id} style={styles.ligneEtiquette}>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontWeight: 600, fontSize: 13 }}>{a.designation}</div>
+                      <div style={{ fontSize: 12, color: 'var(--brown-soft)' }}>{a.reference}</div>
+                    </div>
+                    <input
+                      type="number"
+                      min="0"
+                      style={styles.champQuantite}
+                      value={quantitesEtiquettes[a.id] ?? 0}
+                      onChange={(e) => changerQuantiteEtiquette(a.id, e.target.value)}
+                    />
+                  </div>
+                ))}
+                {articlesAImprimer.length === 0 && (
+                  <p style={{ color: 'var(--brown-soft)' }}>Aucune étiquette en attente.</p>
+                )}
+              </div>
+            )}
+
+            <div style={styles.boutonsFormulaire}>
+              <button type="button" onClick={() => setPanneauEtiquettesOuvert(false)} style={styles.boutonAnnuler}>
+                Annuler
+              </button>
+              <button
+                type="button"
+                onClick={lancerImpressionEtiquettes}
+                disabled={impressionEnCours || chargementEtiquettes}
+                style={styles.boutonValider}
+              >
+                {impressionEnCours ? 'Impression…' : 'Imprimer'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
+}
+
+function joursRestantsPeremption(datePeremption) {
+  if (!datePeremption) return null;
+  const diff = new Date(datePeremption) - new Date();
+  return Math.ceil(diff / (1000 * 60 * 60 * 24));
 }
 
 function CarteArticle({ article, onPhotoMiseAJour, onCodeBarreGenere, onModifier }) {
@@ -157,6 +261,8 @@ function CarteArticle({ article, onPhotoMiseAJour, onCodeBarreGenere, onModifier
     }
   }
 
+  const joursRestants = joursRestantsPeremption(article.datePeremption);
+
   return (
     <div style={styles.carte}>
       <label style={styles.zonePhoto}>
@@ -190,6 +296,13 @@ function CarteArticle({ article, onPhotoMiseAJour, onCodeBarreGenere, onModifier
             <span style={styles.badgeAlerte}> ⚠ faible</span>
           )}
         </div>
+        {article.datePeremption && (
+          <div style={{ ...styles.badgePeremption, color: joursRestants <= 30 ? 'var(--error)' : 'var(--brown-soft)' }}>
+            {joursRestants < 0
+              ? `⚠ Périmé depuis ${Math.abs(joursRestants)} j`
+              : `Péremption : ${new Date(article.datePeremption).toLocaleDateString('fr-FR')}`}
+          </div>
+        )}
         {article.codeBarre ? (
           <div style={styles.codeBarreTexte}>
             {article.codeBarre}{article.codeBarreGenere ? ' (généré)' : ''}
@@ -217,6 +330,9 @@ function FormulaireArticle({ familles, articleEnEdition, onFermer, onFamillesMis
   const [prixAchat, setPrixAchat] = useState(articleEnEdition?.prixAchat ?? '');
   const [prixVente, setPrixVente] = useState(articleEnEdition?.prixVente ?? '');
   const [seuilAlerte, setSeuilAlerte] = useState(articleEnEdition ? String(articleEnEdition.seuilAlerte) : '5');
+  const [datePeremption, setDatePeremption] = useState(
+    articleEnEdition?.datePeremption ? articleEnEdition.datePeremption.slice(0, 10) : ''
+  );
   const [erreur, setErreur] = useState('');
   const [envoiEnCours, setEnvoiEnCours] = useState(false);
 
@@ -293,6 +409,7 @@ function FormulaireArticle({ familles, articleEnEdition, onFermer, onFamillesMis
           prixAchat: prixAchat !== '' ? Number(prixAchat) : 0,
           prixVente: Number(prixVente),
           seuilAlerte: Number(seuilAlerte),
+          datePeremption: datePeremption || null,
         });
         onModifie(article);
       } else {
@@ -305,6 +422,7 @@ function FormulaireArticle({ familles, articleEnEdition, onFermer, onFamillesMis
           prixAchat: prixAchat ? Number(prixAchat) : 0,
           prixVente: Number(prixVente),
           seuilAlerte: Number(seuilAlerte),
+          datePeremption: datePeremption || undefined,
         });
         onCree(article);
       }
@@ -451,6 +569,11 @@ function FormulaireArticle({ familles, articleEnEdition, onFermer, onFamillesMis
           <input type="number" style={styles.champInput} value={seuilAlerte} onChange={(e) => setSeuilAlerte(e.target.value)} />
         </label>
 
+        <label style={styles.champLabel}>
+          Date de péremption (optionnel — surtout pour les cosmétiques)
+          <input type="date" style={styles.champInput} value={datePeremption} onChange={(e) => setDatePeremption(e.target.value)} />
+        </label>
+
         <div style={styles.boutonsFormulaire}>
           <button type="button" onClick={onFermer} style={styles.boutonAnnuler}>Annuler</button>
           <button type="submit" disabled={envoiEnCours} style={styles.boutonValider}>
@@ -482,10 +605,12 @@ const styles = {
   prix: { fontSize: 16, fontWeight: 700, color: 'var(--gold-deep)', marginBottom: 4 },
   stock: { fontSize: 12, color: 'var(--brown-soft)' },
   badgeAlerte: { color: 'var(--error)', fontWeight: 600 },
+  badgePeremption: { fontSize: 11, fontWeight: 600, marginTop: 4 },
   codeBarreTexte: { fontSize: 11, color: 'var(--brown-soft)', marginTop: 6, fontFamily: 'monospace' },
   boutonGenerer: { marginTop: 6, padding: '6px 10px', borderRadius: 6, border: '1px solid var(--gold-mid)', background: 'transparent', color: 'var(--brown-ink)', cursor: 'pointer', fontSize: 11 },
   overlay: { position: 'fixed', inset: 0, background: 'rgba(46,26,13,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20, zIndex: 100 },
   formulaire: { background: 'var(--white)', borderRadius: 16, padding: 28, width: '100%', maxWidth: 420, maxHeight: '90vh', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 14 },
+  panneauEtiquettes: { background: 'var(--white)', borderRadius: 16, padding: 28, width: '100%', maxWidth: 460, maxHeight: '90vh', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 10 },
   titreFormulaire: { fontFamily: 'var(--font-display)', margin: 0, marginBottom: 8 },
   champLabel: { display: 'flex', flexDirection: 'column', gap: 6, fontSize: 13, fontWeight: 600 },
   champInput: { padding: '10px 12px', borderRadius: 8, border: '1px solid var(--cream-deep)', fontSize: 14 },
@@ -496,4 +621,7 @@ const styles = {
   boutonsFormulaire: { display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 8 },
   boutonAnnuler: { padding: '10px 16px', borderRadius: 8, border: '1px solid var(--gold-mid)', background: 'transparent', cursor: 'pointer' },
   boutonValider: { padding: '10px 16px', borderRadius: 8, border: 'none', background: 'var(--gold-deep)', color: 'var(--white)', cursor: 'pointer', fontWeight: 600 },
+  listeEtiquettes: { display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 320, overflowY: 'auto' },
+  ligneEtiquette: { display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px', borderRadius: 8, background: 'var(--cream)' },
+  champQuantite: { width: 70, padding: '8px 10px', borderRadius: 8, border: '1px solid var(--cream-deep)', fontSize: 14, textAlign: 'center' },
 };

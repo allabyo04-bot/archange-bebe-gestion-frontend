@@ -8,8 +8,8 @@ function formatDate(d) {
 
 function debutSemaine() {
   const d = new Date();
-  const jour = d.getDay(); // 0 = dimanche
-  const decalage = jour === 0 ? 6 : jour - 1; // recule jusqu'au lundi
+  const jour = d.getDay();
+  const decalage = jour === 0 ? 6 : jour - 1;
   d.setDate(d.getDate() - decalage);
   return d;
 }
@@ -39,7 +39,7 @@ function imprimerFermetureCaisse(fermeture, lieuNom) {
 </head>
 <body>
   <div class="centre">
-    <h1>JESMA U</h1>
+    <h1>ARCHANGE BÉBÉ</h1>
     <div>${lieuNom || 'Toutes les boutiques'}</div>
     <div>Fermeture de caisse — ${fermeture.date}</div>
   </div>
@@ -83,6 +83,7 @@ export default function Etats() {
     ...(estAdmin ? [{ id: 'journal', label: "Journal d'activité" }] : []),
     { id: 'fermeture', label: 'Fermeture de caisse' },
     { id: 'fidelite', label: 'Récompenses fidélité' },
+    { id: 'peremption', label: 'Péremption' },
   ];
 
   const [ongletActif, setOngletActif] = useState('date');
@@ -94,7 +95,7 @@ export default function Etats() {
   const [raccourciActif, setRaccourciActif] = useState('aujourdhui');
 
   const [donnees, setDonnees] = useState(null);
-  const [ongletDonnees, setOngletDonnees] = useState(null); // à quel onglet correspondent les données actuelles
+  const [ongletDonnees, setOngletDonnees] = useState(null);
   const [chargement, setChargement] = useState(false);
   const [erreur, setErreur] = useState('');
   const [exportEnCours, setExportEnCours] = useState(false);
@@ -126,6 +127,12 @@ export default function Etats() {
   const [journalErreur, setJournalErreur] = useState('');
   const [journalTypeFiltre, setJournalTypeFiltre] = useState('');
 
+  // --- Péremption ---
+  const [peremptions, setPeremptions] = useState([]);
+  const [peremptionChargement, setPeremptionChargement] = useState(false);
+  const [peremptionErreur, setPeremptionErreur] = useState('');
+  const [seuilJours, setSeuilJours] = useState(30);
+
   useEffect(() => {
     appelApi('GET', '/stock/lieux').then(setLieux).catch(() => {});
   }, []);
@@ -146,10 +153,7 @@ export default function Etats() {
   }
 
   async function chargerOnglet() {
-    if (ongletActif === 'fermeture' || ongletActif === 'fidelite' || ongletActif === 'journal') return;
-    // Compteur de requêtes : si une réponse plus ancienne arrive après une plus récente
-    // (ex: clics rapides entre onglets), on l'ignore pour ne jamais afficher des données
-    // qui ne correspondent pas à l'onglet actuellement affiché.
+    if (['fermeture', 'fidelite', 'journal', 'peremption'].includes(ongletActif)) return;
     const idRequete = ++compteurRequete.current;
     const ongletDemande = ongletActif;
     setChargement(true);
@@ -254,6 +258,20 @@ export default function Etats() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ongletActif, journalTypeFiltre]);
 
+  function chargerPeremptions() {
+    setPeremptionChargement(true);
+    setPeremptionErreur('');
+    appelApi('GET', `/etats/peremptions?jours=${seuilJours}`)
+      .then((reponse) => setPeremptions(reponse.resultats))
+      .catch((err) => setPeremptionErreur(err.message))
+      .finally(() => setPeremptionChargement(false));
+  }
+
+  useEffect(() => {
+    if (ongletActif === 'peremption') chargerPeremptions();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ongletActif, seuilJours]);
+
   function ouvrirDefinition(recompense) {
     setEditionId(recompense.id);
     setTypeEdition(recompense.type === 'A_DEFINIR' ? 'REMISE' : recompense.type);
@@ -304,7 +322,6 @@ export default function Etats() {
     }
   }
 
-  // N'affiche les données que si elles correspondent bien à l'onglet actuellement sélectionné.
   const donneesAJour = donnees && ongletDonnees === ongletActif ? donnees : null;
 
   return (
@@ -361,6 +378,25 @@ export default function Etats() {
                 style={t.id === journalTypeFiltre ? styles.filtreActif : styles.filtreInactif}
               >
                 {t.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      ) : ongletActif === 'peremption' ? (
+        <div style={styles.blocFiltres}>
+          <div style={styles.raccourcis}>
+            {[
+              { id: 15, label: '15 jours' },
+              { id: 30, label: '30 jours' },
+              { id: 60, label: '60 jours' },
+              { id: 90, label: '90 jours' },
+            ].map((s) => (
+              <button
+                key={s.id}
+                onClick={() => setSeuilJours(s.id)}
+                style={s.id === seuilJours ? styles.filtreActif : styles.filtreInactif}
+              >
+                {s.label}
               </button>
             ))}
           </div>
@@ -621,6 +657,31 @@ export default function Etats() {
                   </span>
                 </div>
                 <div style={styles.texteMuet}>Par {entree.utilisateur?.nomComplet || '—'}</div>
+              </div>
+            ))}
+          </div>
+        </>
+      ) : ongletActif === 'peremption' ? (
+        <>
+          {peremptionErreur && <div style={styles.bandeauErreur}>{peremptionErreur}</div>}
+          {peremptionChargement && <p style={styles.texteMuet}>Chargement…</p>}
+          {!peremptionChargement && peremptions.length === 0 && (
+            <p style={styles.texteMuet}>Aucun article avec une date de péremption approchant dans ce délai.</p>
+          )}
+          <div style={styles.tableauWrapper}>
+            {peremptions.map((a) => (
+              <div key={a.id} style={styles.carteAttente}>
+                <div style={styles.enTeteCarteAttente}>
+                  <span style={{ fontWeight: 700 }}>{a.designation} ({a.reference})</span>
+                  <span style={{ fontWeight: 700, color: a.joursRestants < 0 ? 'var(--error)' : 'var(--brown-ink)' }}>
+                    {a.joursRestants < 0
+                      ? `Périmé depuis ${Math.abs(a.joursRestants)} j`
+                      : `${a.joursRestants} j restants`}
+                  </span>
+                </div>
+                <div style={styles.texteMuet}>
+                  {a.famille?.nom} — {a.sousFamille?.nom} — Stock : {a.stockActuel} — Péremption le {new Date(a.datePeremption).toLocaleDateString('fr-FR')}
+                </div>
               </div>
             ))}
           </div>

@@ -148,3 +148,27 @@ export async function uploaderPhotoArticle(articleId, fichier) {
   }
   return data;
 }
+// Envoie une requête POST authentifiée et récupère une page HTML en retour (ex: impression
+// d'étiquettes avec des quantités choisies) — impossible via un lien classique car le
+// token et le corps de la requête ne seraient pas transmis.
+export async function envoyerEtRecupererHtmlAvecAuth(chemin, corps) {
+  const headers = { 'Content-Type': 'application/json' };
+  const token = getToken();
+  if (token) headers.Authorization = `Bearer ${token}`;
+
+  const reponse = await fetch(`${BASE_URL}${chemin}`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify(corps),
+  });
+  const texte = await reponse.text();
+  if (!reponse.ok) {
+    let message = 'Impossible de générer les étiquettes.';
+    try {
+      const data = JSON.parse(texte);
+      if (data && data.error) message = data.error;
+    } catch { /* réponse non JSON, message générique conservé */ }
+    throw new Error(message);
+  }
+  return texte;
+}

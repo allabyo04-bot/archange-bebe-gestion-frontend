@@ -582,6 +582,12 @@ export default function Ventes() {
   const resteAPayer = totalNet - totalPaiements - contributionAvoir;
   const estCredit = typeVente === 'Crédit';
 
+  // Diffuse en temps réel le panier de la vente en cours vers l'écran client (double
+  // écran caisse), à chaque ajout/retrait d'article ou changement de remise.
+  useEffect(() => {
+    diffuserEtatPanier({ panier, remise });
+  }, [panier, remise]);
+
   useEffect(() => {
     if (panier.length > 0 && resteAPayer > 0) {
       setMontantAAjouter(String(resteAPayer));

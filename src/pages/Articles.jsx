@@ -126,6 +126,9 @@ export default function Articles() {
               🖨️ Étiquettes à imprimer ({nombreAImprimer})
             </button>
           )}
+          <button onClick={() => navigate('/familles')} style={styles.boutonRetour}>
+            Familles &amp; sous-familles
+          </button>
           <button onClick={ouvrirCreation} style={styles.boutonAjouter}>
             + Nouvel article
           </button>

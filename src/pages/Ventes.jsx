@@ -1318,8 +1318,10 @@ export default function Ventes() {
                           {ligne.prixUnitaire.toLocaleString('fr-FR')} F × {ligne.quantite}
                         </div>
                         {stockRestant != null && (
-                          <div style={{ ...styles.badgeStock, color: stockRestant < 0 ? 'var(--error)' : 'var(--brown-soft)' }}>
-                            Stock restant : {stockRestant}
+                          <div style={stockRestant < 0 ? styles.badgeStockAlerte : styles.badgeStock}>
+                            {stockRestant < 0
+                              ? `⚠️ Stock insuffisant (dispo : ${ligne.stockDispo})`
+                              : `Stock restant : ${stockRestant}`}
                           </div>
                         )}
                       </div>
@@ -1530,5 +1532,9 @@ const styles = {
   boutonReprendre: { padding: '6px 12px', borderRadius: 8, border: 'none', background: 'var(--gold-deep)', color: 'var(--white)', cursor: 'pointer', fontWeight: 600, fontSize: 13 },
   filtreActif: { padding: '6px 14px', borderRadius: 20, border: 'none', background: 'var(--gold-deep)', color: 'var(--white)', cursor: 'pointer', fontWeight: 600, fontSize: 13 },
   filtreInactif: { padding: '6px 14px', borderRadius: 20, border: '1px solid var(--cream-deep)', background: 'transparent', cursor: 'pointer', fontSize: 13 },
-  badgeStock: { fontSize: 11, marginTop: 2, fontWeight: 600 },
+  badgeStock: { fontSize: 11, marginTop: 2, fontWeight: 600, color: 'var(--brown-soft)' },
+  badgeStockAlerte: {
+    fontSize: 12, marginTop: 4, fontWeight: 800, color: 'var(--error)',
+    background: '#FBE4E1', padding: '3px 8px', borderRadius: 6, display: 'inline-block',
+  },
 };

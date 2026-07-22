@@ -674,6 +674,7 @@ function OngletEtatStock({ lieux }) {
   const [lieuId, setLieuId] = useState('');
   const [stocks, setStocks] = useState([]);
   const [chargement, setChargement] = useState(false);
+  const [recherche, setRecherche] = useState('');
 
   useEffect(() => {
     if (!lieuId) {
@@ -687,6 +688,14 @@ function OngletEtatStock({ lieux }) {
       .finally(() => setChargement(false));
   }, [lieuId]);
 
+  const termeRecherche = recherche.trim().toLowerCase();
+  const stocksFiltres = termeRecherche
+    ? stocks.filter((s) =>
+        s.article.designation.toLowerCase().includes(termeRecherche) ||
+        s.article.reference.toLowerCase().includes(termeRecherche)
+      )
+    : stocks;
+
   return (
     <div style={styles.carte}>
       <label style={styles.champLabel}>
@@ -699,12 +708,28 @@ function OngletEtatStock({ lieux }) {
         </select>
       </label>
 
+      {lieuId && (
+        <label style={styles.champLabel}>
+          Rechercher un article
+          <input
+            style={styles.champInput}
+            type="text"
+            placeholder="Désignation ou référence…"
+            value={recherche}
+            onChange={(e) => setRecherche(e.target.value)}
+          />
+        </label>
+      )}
+
       {chargement && <p style={styles.texteMuet}>Chargement…</p>}
       {!chargement && lieuId && stocks.length === 0 && (
         <p style={styles.texteMuet}>Aucun stock enregistré pour ce lieu.</p>
       )}
+      {!chargement && stocks.length > 0 && stocksFiltres.length === 0 && (
+        <p style={styles.texteMuet}>Aucun article ne correspond à "{recherche}".</p>
+      )}
 
-      {!chargement && stocks.length > 0 && (
+      {!chargement && stocksFiltres.length > 0 && (
         <div style={styles.tableauScroll}>
           <table style={styles.tableau}>
             <thead>
@@ -715,7 +740,7 @@ function OngletEtatStock({ lieux }) {
               </tr>
             </thead>
             <tbody>
-              {stocks.map((s) => (
+              {stocksFiltres.map((s) => (
                 <tr key={s.id}>
                   <td style={styles.td}>{s.article.designation}</td>
                   <td style={styles.td}>{s.article.reference}</td>
@@ -744,6 +769,7 @@ function OngletEtatStock({ lieux }) {
 function OngletEtatGlobal({ lieux, articles }) {
   const [chargement, setChargement] = useState(true);
   const [lignesParArticle, setLignesParArticle] = useState({});
+  const [recherche, setRecherche] = useState('');
 
   useEffect(() => {
     if (lieux.length === 0) return;
@@ -764,16 +790,38 @@ function OngletEtatGlobal({ lieux, articles }) {
       .finally(() => setChargement(false));
   }, [lieux]);
 
+  const termeRecherche = recherche.trim().toLowerCase();
+  const articlesFiltres = termeRecherche
+    ? articles.filter((a) =>
+        a.designation.toLowerCase().includes(termeRecherche) ||
+        a.reference.toLowerCase().includes(termeRecherche)
+      )
+    : articles;
+
   return (
     <div style={styles.carte}>
       <h3 style={styles.titreCarte}>État du stock — tous dépôts</h3>
+
+      <label style={styles.champLabel}>
+        Rechercher un article
+        <input
+          style={styles.champInput}
+          type="text"
+          placeholder="Désignation ou référence…"
+          value={recherche}
+          onChange={(e) => setRecherche(e.target.value)}
+        />
+      </label>
 
       {chargement && <p style={styles.texteMuet}>Chargement…</p>}
       {!chargement && articles.length === 0 && (
         <p style={styles.texteMuet}>Aucun article pour l'instant.</p>
       )}
+      {!chargement && articles.length > 0 && articlesFiltres.length === 0 && (
+        <p style={styles.texteMuet}>Aucun article ne correspond à "{recherche}".</p>
+      )}
 
-      {!chargement && articles.length > 0 && (
+      {!chargement && articlesFiltres.length > 0 && (
         <div style={styles.tableauScroll}>
           <table style={styles.tableau}>
             <thead>
@@ -787,7 +835,7 @@ function OngletEtatGlobal({ lieux, articles }) {
               </tr>
             </thead>
             <tbody>
-              {articles.map((a) => {
+              {articlesFiltres.map((a) => {
                 const quantitesParLieu = lignesParArticle[a.id] || {};
                 const total = lieux.reduce((s, l) => s + (quantitesParLieu[l.id] || 0), 0);
                 return (

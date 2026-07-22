@@ -37,7 +37,7 @@ function construireTicketHtml({ vente, panier, remise, totalNet, paiements, cont
   const date = new Date(vente.createdAt || Date.now());
   const dateTexte = date.toLocaleDateString('fr-FR');
   const heureTexte = date.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
-  const logoUrl = `${window.location.origin}/logo-jesma-u.png`;
+  const logoUrl = `${window.location.origin}/logo-archange-bebe.png`;
 
   const lignesHtml = panier.map((l) => `
     <tr>
@@ -61,26 +61,26 @@ function construireTicketHtml({ vente, panier, remise, totalNet, paiements, cont
 <title>Ticket ${vente.numero}</title>
 <style>
   @page { size: 80mm auto; margin: 0; }
-  body { font-family: 'Courier New', monospace; width: 76mm; margin: 4mm auto; font-size: 12px; color: #000; }
+  body { font-family: Arial, Helvetica, sans-serif; font-weight: 600; width: 76mm; margin: 4mm auto; font-size: 13px; color: #000; }
   .centre { text-align: center; }
   .logo { max-width: 55mm; max-height: 25mm; margin-bottom: 4px; }
-  h1 { font-size: 16px; margin: 0 0 2px 0; }
-  .sous-titre { font-size: 11px; margin-bottom: 8px; }
-  hr { border: none; border-top: 1px dashed #000; margin: 8px 0; }
+  h1 { font-size: 19px; font-weight: 800; margin: 0 0 2px 0; }
+  .sous-titre { font-size: 12px; font-weight: 700; margin-bottom: 8px; }
+  hr { border: none; border-top: 2px dashed #000; margin: 8px 0; }
   table { width: 100%; border-collapse: collapse; }
   td { padding: 1px 0; vertical-align: top; }
-  .designation { font-weight: bold; padding-top: 4px; }
-  .montant { text-align: right; }
-  .ligne-total { display: flex; justify-content: space-between; margin: 2px 0; }
-  .total-final { font-weight: bold; font-size: 14px; margin-top: 6px; }
-  .pied { text-align: center; margin-top: 12px; font-size: 11px; }
-  .coordonnees { text-align: center; margin-top: 4px; font-size: 10px; line-height: 1.5; }
+  .designation { font-weight: 800; padding-top: 4px; }
+  .montant { text-align: right; font-weight: 700; }
+  .ligne-total { display: flex; justify-content: space-between; margin: 2px 0; font-weight: 700; }
+  .total-final { font-weight: 800; font-size: 16px; margin-top: 6px; }
+  .pied { text-align: center; margin-top: 12px; font-size: 12px; font-weight: 700; }
+  .coordonnees { text-align: center; margin-top: 4px; font-size: 11px; font-weight: 600; line-height: 1.6; }
 </style>
 </head>
 <body>
   <div class="centre">
-    <img src="${logoUrl}" class="logo" alt="Jesma U" onerror="this.style.display='none'">
-    <h1>JESMA U</h1>
+    <img src="${logoUrl}" class="logo" alt="Archange Bébé" onerror="this.style.display='none'">
+    <h1>ARCHANGE BÉBÉ</h1>
     <div class="sous-titre">${lieuNom || ''}</div>
     <div>${dateTexte} — ${heureTexte}</div>
     <div>Ticket ${vente.numero}</div>
@@ -99,8 +99,8 @@ function construireTicketHtml({ vente, panier, remise, totalNet, paiements, cont
   <hr>
   <div class="pied">Merci de votre visite !</div>
   <div class="coordonnees">
-    Grand-Bassam, carrefour rosier 5<br>
-    WhatsApp +225 07 69 535 786
+    Angré Carrefour Adama Sanogho, après le 22ème<br>
+    0505380826 / 2722242008
   </div>
   <script>window.onload = () => window.print();</script>
 </body>
@@ -197,12 +197,19 @@ export default function Ventes() {
   // Si on arrive depuis la fiche d'un client fraîchement créé (?clientId=123), on le
   // présélectionne automatiquement dès que la liste des clients est chargée, puis on
   // retire le paramètre de l'URL pour ne pas le réappliquer à une prochaine vente.
+  // À défaut, on présélectionne "Client Comptoir" par défaut (au lieu de laisser le
+  // champ vide) — c'est le client le plus fréquent en caisse.
   useEffect(() => {
     const idDepuisUrl = searchParams.get('clientId');
     if (idDepuisUrl && clients.some((c) => String(c.id) === idDepuisUrl)) {
       setClientId(idDepuisUrl);
       setOngletActif('nouvelle');
       setSearchParams({}, { replace: true });
+      return;
+    }
+    if (!clientId && clients.length > 0) {
+      const comptoir = clients.find((c) => c.nomComplet === 'Client Comptoir');
+      if (comptoir) setClientId(String(comptoir.id));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [clients]);
@@ -210,14 +217,18 @@ export default function Ventes() {
   // La liste des vendeurs proposés dépend de la boutique choisie : on recharge à
   // chaque changement, et on désélectionne le vendeur en cours s'il n'est plus
   // dans la nouvelle liste (cas d'un vendeur assigné à une autre boutique).
+  // S'il n'y a qu'un seul vendeur pour cette boutique, on le présélectionne
+  // automatiquement (pas besoin de le choisir à chaque vente).
   useEffect(() => {
     const suffixe = lieuId ? `?lieuId=${lieuId}` : '';
     appelApi('GET', `/vendeurs${suffixe}`)
       .then((liste) => {
         setVendeurs(liste);
-        setVendeurId((precedent) =>
-          precedent && liste.some((v) => String(v.id) === String(precedent)) ? precedent : ''
-        );
+        setVendeurId((precedent) => {
+          if (precedent && liste.some((v) => String(v.id) === String(precedent))) return precedent;
+          if (liste.length === 1) return String(liste[0].id);
+          return '';
+        });
       })
       .catch(() => {});
   }, [lieuId]);

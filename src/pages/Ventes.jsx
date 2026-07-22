@@ -126,8 +126,12 @@ export default function Ventes() {
   const [resultats, setResultats] = useState([]);
   const [erreurRecherche, setErreurRecherche] = useState('');
   const [rechercheEnCours, setRechercheEnCours] = useState(false);
-  const [remiseMontant, setRemiseMontant] = useState('');
+  const [remisePourcent, setRemisePourcent] = useState('');
   const [motifRemise, setMotifRemise] = useState('');
+  const [pinDemande, setPinDemande] = useState(false);
+  const [pinSaisi, setPinSaisi] = useState('');
+  const [pinErreur, setPinErreur] = useState('');
+  const [pinEnCours, setPinEnCours] = useState(false);
 
   const [lieux, setLieux] = useState([]);
   const [vendeurs, setVendeurs] = useState([]);
@@ -143,6 +147,7 @@ export default function Ventes() {
   const [paiements, setPaiements] = useState([]);
   const [modeAAjouter, setModeAAjouter] = useState(MODES_PAIEMENT[0]);
   const [montantAAjouter, setMontantAAjouter] = useState('');
+  const [montantRecu, setMontantRecu] = useState('');
 
   // --- Avoir utilisé en paiement sur la nouvelle vente ---
   const [codeAvoir, setCodeAvoir] = useState('');
@@ -552,14 +557,18 @@ export default function Ventes() {
 
   function reinitialiserVente() {
     setPanier([]);
-    setRemiseMontant('');
+    setRemisePourcent('');
     setMotifRemise('');
     setClientId('');
     setClientSearch('');
     setPaiements([]);
     setMontantAAjouter('');
+    setMontantRecu('');
     setTypeVente('Comptant');
     retirerAvoir();
+    setPinDemande(false);
+    setPinSaisi('');
+    setPinErreur('');
   }
 
   // Le client se désiste avant paiement : on vide le panier en cours sans rien
@@ -575,11 +584,13 @@ export default function Ventes() {
   }
 
   const totalBrut = panier.reduce((somme, l) => somme + l.prixUnitaire * l.quantite, 0);
-  const remise = Math.min(Number(remiseMontant) || 0, totalBrut);
+  const pourcentageRemise = Math.min(Math.max(Number(remisePourcent) || 0, 0), 100);
+  const remise = Math.round((totalBrut * pourcentageRemise) / 100);
   const totalNet = totalBrut - remise;
   const totalPaiements = paiements.reduce((s, p) => s + p.montant, 0);
   const contributionAvoir = avoirVerifie ? Math.min(Number(avoirVerifie.montant), totalNet) : 0;
   const resteAPayer = totalNet - totalPaiements - contributionAvoir;
+  const monnaieARendre = montantRecu !== '' ? Number(montantRecu) - resteAPayer : null;
   const estCredit = typeVente === 'Crédit';
 
   // Diffuse en temps réel le panier de la vente en cours vers l'écran client (double
@@ -601,6 +612,7 @@ export default function Ventes() {
     if (!montant || montant <= 0) return;
     setPaiements((prec) => [...prec, { mode: modeAAjouter, montant }]);
     setMontantAAjouter('');
+    setMontantRecu('');
   }
 
   function retirerPaiement(index) {
@@ -618,7 +630,7 @@ export default function Ventes() {
       id: Date.now(),
       createdAt: new Date().toISOString(),
       panier,
-      remiseMontant,
+      remisePourcent,
       motifRemise,
       lieuId,
       vendeurId,
@@ -636,7 +648,7 @@ export default function Ventes() {
     if (!vente) return;
 
     setPanier(vente.panier);
-    setRemiseMontant(vente.remiseMontant);
+    setRemisePourcent(vente.remisePourcent ?? '');
     setMotifRemise(vente.motifRemise);
     setLieuId(vente.lieuId);
     setVendeurId(vente.vendeurId);
@@ -650,6 +662,53 @@ export default function Ventes() {
 
   function supprimerVenteEnAttente(id) {
     sauvegarderListeAttente(ventesEnAttente.filter((v) => v.id !== id));
+  }
+
+  async function soumettreVente(pinAUtiliser) {
+    const idClientFinal = clientId
+      ? Number(clientId)
+      : clients.find((c) => c.nomComplet === 'Client Comptoir')?.id;
+
+    return appelApi('POST', '/ventes', {
+      lieuId: Number(lieuId),
+      vendeurId: vendeurId ? Number(vendeurId) : null,
+      clientId: idClientFinal,
+      typeVente: estCredit ? 'CREDIT' : 'COMPTANT',
+      remisePourcent: pourcentageRemise > 0 ? pourcentageRemise : undefined,
+      motifRemise: motifRemise || undefined,
+      remisePin: pinAUtiliser || undefined,
+      avoirCode: avoirVerifie ? avoirVerifie.reference : undefined,
+      lignes: panier.map((l) => ({
+        articleId: l.articleId,
+        quantite: l.quantite,
+        prixUnitaire: l.prixUnitaire,
+      })),
+      paiements: paiements.map((p) => ({ mode: p.mode, montant: p.montant })),
+    });
+  }
+
+  function finaliserApresVente(vente) {
+    const lieuNom = lieux.find((l) => String(l.id) === String(lieuId))?.nom;
+    const vendeurNom = vendeurs.find((v) => String(v.id) === String(vendeurId))?.nomComplet;
+    const ticketHtml = construireTicketHtml({
+      vente,
+      panier,
+      remise,
+      totalNet,
+      paiements,
+      contributionAvoir,
+      avoirReference: avoirVerifie?.reference,
+      lieuNom,
+      vendeurNom,
+      estCredit,
+      montantRestant: resteAPayer,
+    });
+    setDernierTicketHtml(ticketHtml);
+    imprimerTicketDepuisHtml(ticketHtml);
+
+    setConfirmation({ ...vente, montantRestantAffiche: estCredit ? resteAPayer : 0 });
+    diffuserVenteValidee(vente);
+    reinitialiserVente();
   }
 
   async function validerVente() {
@@ -682,60 +741,51 @@ export default function Ventes() {
 
     // Un client est toujours associé à la vente, quitte à retomber sur "Client Comptoir"
     // si la caissière n'en a choisi aucun (client anonyme).
-    let idClientFinal = clientId ? Number(clientId) : null;
-    if (!idClientFinal) {
-      const comptoir = clients.find((c) => c.nomComplet === 'Client Comptoir');
-      if (!comptoir) {
-        setErreurVente('Aucun client sélectionné, et "Client Comptoir" n\'existe pas encore — crée-le une fois dans Clients.');
-        return;
-      }
-      idClientFinal = comptoir.id;
+    if (!clientId && !clients.find((c) => c.nomComplet === 'Client Comptoir')) {
+      setErreurVente('Aucun client sélectionné, et "Client Comptoir" n\'existe pas encore — crée-le une fois dans Clients.');
+      return;
     }
 
     setVenteEnCours(true);
     try {
-      const vente = await appelApi('POST', '/ventes', {
-        lieuId: Number(lieuId),
-        vendeurId: vendeurId ? Number(vendeurId) : null,
-        clientId: idClientFinal,
-        typeVente: estCredit ? 'CREDIT' : 'COMPTANT',
-        remiseMontant: remise > 0 ? remise : undefined,
-        motifRemise: motifRemise || undefined,
-        avoirCode: avoirVerifie ? avoirVerifie.reference : undefined,
-        lignes: panier.map((l) => ({
-          articleId: l.articleId,
-          quantite: l.quantite,
-          prixUnitaire: l.prixUnitaire,
-        })),
-        paiements: paiements.map((p) => ({ mode: p.mode, montant: p.montant })),
-      });
-
-      const lieuNom = lieux.find((l) => String(l.id) === String(lieuId))?.nom;
-      const vendeurNom = vendeurs.find((v) => String(v.id) === String(vendeurId))?.nomComplet;
-      const ticketHtml = construireTicketHtml({
-        vente,
-        panier,
-        remise,
-        totalNet,
-        paiements,
-        contributionAvoir,
-        avoirReference: avoirVerifie?.reference,
-        lieuNom,
-        vendeurNom,
-        estCredit,
-        montantRestant: resteAPayer,
-      });
-      setDernierTicketHtml(ticketHtml);
-      imprimerTicketDepuisHtml(ticketHtml);
-
-      setConfirmation({ ...vente, montantRestantAffiche: estCredit ? resteAPayer : 0 });
-      diffuserVenteValidee(vente);
-      reinitialiserVente();
+      const vente = await soumettreVente();
+      finaliserApresVente(vente);
     } catch (err) {
-      setErreurVente(err.message);
+      if (err.pinAdminRequis) {
+        setPinDemande(true);
+        setPinSaisi('');
+        setPinErreur('');
+      } else {
+        setErreurVente(err.message);
+      }
     } finally {
       setVenteEnCours(false);
     }
+  }
+
+  async function confirmerPin() {
+    if (!pinSaisi.trim()) {
+      setPinErreur('Saisis le PIN administrateur.');
+      return;
+    }
+    setPinEnCours(true);
+    setPinErreur('');
+    try {
+      const vente = await soumettreVente(pinSaisi.trim());
+      setPinDemande(false);
+      setPinSaisi('');
+      finaliserApresVente(vente);
+    } catch (err) {
+      setPinErreur(err.message);
+    } finally {
+      setPinEnCours(false);
+    }
+  }
+
+  function annulerPin() {
+    setPinDemande(false);
+    setPinSaisi('');
+    setPinErreur('');
   }
 
   return (
@@ -1337,16 +1387,21 @@ export default function Ventes() {
 
                 <div style={styles.blocRemise}>
                   <label style={styles.champLabel}>
-                    Remise (F)
+                    Remise (%)
                     <input
                       type="number"
                       min="0"
+                      max="100"
+                      step="0.5"
                       style={styles.champInput}
-                      value={remiseMontant}
-                      onChange={(e) => setRemiseMontant(e.target.value)}
+                      value={remisePourcent}
+                      onChange={(e) => setRemisePourcent(e.target.value)}
                     />
                   </label>
-                  {Number(remiseMontant) > 0 && (
+                  {pourcentageRemise > 0 && (
+                    <div style={styles.texteMuet}>= {remise.toLocaleString('fr-FR')} F</div>
+                  )}
+                  {pourcentageRemise > 0 && (
                     <label style={styles.champLabel}>
                       Motif de la remise
                       <input
@@ -1413,6 +1468,29 @@ export default function Ventes() {
                   </button>
                 </div>
 
+                {modeAAjouter === 'Espèces' && (
+                  <div style={styles.blocMonnaie}>
+                    <label style={styles.champLabel}>
+                      Montant reçu du client (F) — facultatif
+                      <input
+                        type="number"
+                        min="0"
+                        style={styles.champInput}
+                        placeholder="Ex: 10000"
+                        value={montantRecu}
+                        onChange={(e) => setMontantRecu(e.target.value)}
+                      />
+                    </label>
+                    {monnaieARendre !== null && (
+                      <div style={monnaieARendre >= 0 ? styles.badgeMonnaie : styles.badgeMonnaieManquant}>
+                        {monnaieARendre >= 0
+                          ? `Monnaie à rendre : ${monnaieARendre.toLocaleString('fr-FR')} F`
+                          : `Il manque encore ${Math.abs(monnaieARendre).toLocaleString('fr-FR')} F`}
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 {paiements.length > 0 && (
                   <div style={styles.listePaiements}>
                     {paiements.map((p, index) => (
@@ -1471,6 +1549,36 @@ export default function Ventes() {
             </div>
           </>
         )}
+
+        {pinDemande && (
+          <div style={styles.overlayPin}>
+            <div style={styles.modalePin}>
+              <h3 style={{ marginTop: 0 }}>PIN administrateur requis</h3>
+              <p style={styles.texteMuet}>
+                Cette remise ({pourcentageRemise}% = {remise.toLocaleString('fr-FR')} F) dépasse le plafond autorisé
+                pour ce compte. Un administrateur doit saisir son PIN pour la débloquer.
+              </p>
+              {pinErreur && <div style={styles.bandeauErreur}>{pinErreur}</div>}
+              <input
+                type="password"
+                autoFocus
+                style={styles.champInput}
+                value={pinSaisi}
+                onChange={(e) => setPinSaisi(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && confirmerPin()}
+                placeholder="PIN administrateur"
+              />
+              <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+                <button onClick={annulerPin} style={styles.boutonAnnulerVente} disabled={pinEnCours}>
+                  Annuler
+                </button>
+                <button onClick={confirmerPin} style={styles.boutonValider} disabled={pinEnCours}>
+                  {pinEnCours ? 'Vérification…' : 'Débloquer la remise'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </main>
     </div>
   );
@@ -1498,6 +1606,14 @@ const styles = {
   champInput: { padding: '8px 10px', borderRadius: 8, border: '1px solid var(--cream-deep)', fontSize: 14, minWidth: 160 },
   bandeauConfirmation: { padding: '10px 14px', borderRadius: 8, background: '#DFF3E3', color: '#1E6B36', fontSize: 14, fontWeight: 600, display: 'flex', alignItems: 'center', flexWrap: 'wrap' },
   bandeauErreur: { padding: '10px 14px', borderRadius: 8, background: '#FBE4E1', color: 'var(--error)', fontSize: 14, fontWeight: 600 },
+  overlayPin: {
+    position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex',
+    alignItems: 'center', justifyContent: 'center', zIndex: 1000,
+  },
+  modalePin: {
+    background: 'var(--white)', borderRadius: 14, padding: 24, width: 360,
+    display: 'flex', flexDirection: 'column', gap: 10,
+  },
   zonePrincipale: { display: 'grid', gridTemplateColumns: '1.2fr 1fr 1fr', gap: 16, flex: 1 },
   blocAjoutArticle: { background: 'var(--white)', borderRadius: 12, padding: 16 },
   colonnePanier: { background: 'var(--white)', borderRadius: 12, padding: 16 },
@@ -1518,6 +1634,15 @@ const styles = {
   totalPanier: { marginTop: 4, fontWeight: 700, fontSize: 16, textAlign: 'right' },
   ajoutPaiement: { display: 'flex', gap: 6, marginBottom: 10, flexWrap: 'wrap' },
   boutonAjouterPaiement: { padding: '8px 12px', borderRadius: 8, border: 'none', background: 'var(--gold-mid)', color: 'var(--white)', cursor: 'pointer', fontWeight: 600, fontSize: 13 },
+  blocMonnaie: { display: 'flex', flexDirection: 'column', gap: 6, marginTop: 4, marginBottom: 10 },
+  badgeMonnaie: {
+    fontSize: 15, fontWeight: 800, color: '#3A7D44', background: '#E4F3E6',
+    padding: '8px 12px', borderRadius: 8,
+  },
+  badgeMonnaieManquant: {
+    fontSize: 13, fontWeight: 700, color: 'var(--brown-soft)', background: 'var(--cream-deep)',
+    padding: '8px 12px', borderRadius: 8,
+  },
   listePaiements: { display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 10 },
   lignePaiement: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, padding: '6px 10px', borderRadius: 6, background: 'var(--cream)', fontSize: 13 },
   recapPaiement: { marginTop: 4, paddingTop: 10, borderTop: '2px solid var(--gold-mid)' },

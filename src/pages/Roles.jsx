@@ -61,6 +61,18 @@ export default function Roles() {
     }
   }
 
+  async function modifierPlafondRemise(role, valeur) {
+    setErreur('');
+    const nombre = Math.min(Math.max(Number(valeur) || 0, 0), 100);
+    setRoles((prec) => prec.map((r) => (r.id !== role.id ? r : { ...r, plafondRemisePourcent: nombre })));
+    try {
+      await appelApi('PUT', `/roles/${role.id}/plafond-remise`, { plafondRemisePourcent: nombre });
+    } catch (err) {
+      setErreur(err.message);
+      chargerRoles();
+    }
+  }
+
   async function creerRole(e) {
     e.preventDefault();
     if (!nouveauNom.trim()) return;
@@ -106,6 +118,7 @@ export default function Roles() {
                 {MODULES.map((m) => (
                   <th key={m.id} style={{ ...styles.th, textAlign: 'center' }}>{m.label}</th>
                 ))}
+                <th style={{ ...styles.th, textAlign: 'center' }}>Remise libre</th>
                 <th style={styles.th}></th>
               </tr>
             </thead>
@@ -129,6 +142,25 @@ export default function Roles() {
                       />
                     </td>
                   ))}
+                  <td style={{ ...styles.td, textAlign: 'center' }}>
+                    {role.estAdmin ? (
+                      <span style={styles.texteMuet}>Illimité</span>
+                    ) : (
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
+                        <input
+                          type="number"
+                          min={0}
+                          max={100}
+                          step={0.5}
+                          defaultValue={role.plafondRemisePourcent ?? 0}
+                          disabled={!role.modifiable}
+                          onBlur={(e) => modifierPlafondRemise(role, e.target.value)}
+                          style={styles.champPlafond}
+                        />
+                        <span style={styles.texteMuet}>%</span>
+                      </div>
+                    )}
+                  </td>
                   <td style={styles.td}>
                     {role.modifiable && (role._count?.utilisateurs ?? 0) === 0 && (
                       <button onClick={() => supprimerRole(role)} style={styles.boutonRetirer}>Supprimer</button>
@@ -154,6 +186,10 @@ export default function Roles() {
       </form>
 
       <p style={styles.texteMuet}>Le rôle Administrateur garde toujours accès complet et ne peut pas être modifié.</p>
+      <p style={styles.texteMuet}>
+        "Remise libre" = pourcentage qu'un employé de ce rôle peut accorder sans PIN administrateur.
+        Au-delà, le PIN d'un compte Administrateur est demandé à la caisse.
+      </p>
     </div>
   );
 }
@@ -171,6 +207,7 @@ const styles = {
   td: { padding: '10px 8px', borderBottom: '1px solid var(--cream-deep)' },
   badgeRole: { padding: '4px 10px', borderRadius: 20, color: 'var(--white)', fontSize: 12, fontWeight: 600 },
   boutonRetirer: { border: 'none', background: 'transparent', color: 'var(--error)', cursor: 'pointer', fontSize: 12, fontWeight: 600 },
+  champPlafond: { width: 56, padding: '6px 8px', borderRadius: 6, border: '1px solid var(--cream-deep)', fontSize: 13, textAlign: 'right' },
   formNouveauRole: { display: 'flex', gap: 10, maxWidth: 500 },
   champInput: { padding: '10px 12px', borderRadius: 8, border: '1px solid var(--cream-deep)', fontSize: 14, flex: 1 },
   boutonAjouter: { padding: '10px 18px', borderRadius: 8, border: 'none', background: 'var(--gold-deep)', color: 'var(--white)', cursor: 'pointer', fontWeight: 600 },

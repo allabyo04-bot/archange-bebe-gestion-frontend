@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ecouterCanal, demanderEtatActuel } from '../lib/broadcast';
 
 // Écran destiné à faire face au client sur la borne double écran. Ne fait qu'afficher —
@@ -7,6 +7,7 @@ import { ecouterCanal, demanderEtatActuel } from '../lib/broadcast';
 export default function EcranClient() {
   const [etat, setEtat] = useState(null);
   const [venteValidee, setVenteValidee] = useState(null);
+  const finListeRef = useRef(null);
 
   useEffect(() => {
     const arreterEcoute = ecouterCanal((message) => {
@@ -21,6 +22,13 @@ export default function EcranClient() {
     demanderEtatActuel();
     return arreterEcoute;
   }, []);
+
+  // Le client ne peut pas interagir avec cet écran (pas de souris/tactile) : dès
+  // qu'un nouvel article est ajouté, on fait défiler automatiquement pour qu'il
+  // reste visible, sans quoi il disparaîtrait tout en bas d'une longue liste.
+  useEffect(() => {
+    finListeRef.current?.scrollIntoView({ block: 'end' });
+  }, [etat]);
 
   if (venteValidee) {
     return (
@@ -73,6 +81,7 @@ export default function EcranClient() {
                 </div>
               </div>
             ))}
+            <div ref={finListeRef} />
           </div>
 
           <footer style={styles.piedTotal}>

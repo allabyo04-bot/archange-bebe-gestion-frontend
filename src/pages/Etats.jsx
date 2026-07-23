@@ -325,7 +325,7 @@ export default function Etats() {
   const donneesAJour = donnees && ongletDonnees === ongletActif ? donnees : null;
 
   return (
-    <div style={styles.page}>
+    <div style={styles.page} className="etats-page">
       <div style={styles.enTete}>
         <button onClick={() => navigate('/dashboard')} style={styles.boutonRetour}>← Tableau de bord</button>
         <h1 style={styles.titre}>États</h1>

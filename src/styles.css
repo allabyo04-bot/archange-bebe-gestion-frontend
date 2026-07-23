@@ -52,3 +52,66 @@ a {
   outline: 2px solid var(--gold-deep);
   outline-offset: 2px;
 }
+
+/* --------------------------------------------------------------------
+   Adaptation mobile — l'appli est pensée pour un écran de caisse (PC/
+   tablette) ; ces règles rendent au moins le Tableau de bord et les
+   États utilisables sur un téléphone, sans toucher au reste.
+   -------------------------------------------------------------------- */
+
+/* Filet de sécurité général : un champ ne doit jamais dépasser la largeur
+   de son conteneur, même s'il a un minWidth fixé en style inline. */
+input, select, textarea {
+  max-width: 100%;
+}
+
+@media (max-width: 768px) {
+  /* Tableau de bord : la barre latérale (largeur fixe 220px en desktop)
+     devient une barre horizontale en haut, avec les liens qui défilent
+     au besoin plutôt que d'écraser le contenu. */
+  .app-shell {
+    flex-direction: column !important;
+  }
+  .app-sidebar {
+    width: 100% !important;
+    flex-direction: row !important;
+    flex-wrap: nowrap !important;
+    align-items: center !important;
+    gap: 12px !important;
+    padding: 10px 12px !important;
+    border-right: none !important;
+    border-bottom: 1px solid var(--gold-light);
+  }
+  .app-sidebar .app-nav {
+    flex-direction: row !important;
+    flex: 1 !important;
+    gap: 6px !important;
+    overflow-x: auto !important;
+  }
+  .app-sidebar .app-nav button {
+    white-space: nowrap;
+    flex-shrink: 0;
+    font-size: 13px !important;
+    padding: 8px 10px !important;
+  }
+  .app-sidebar > div:first-child {
+    flex-shrink: 0;
+  }
+  .app-sidebar > button {
+    flex-shrink: 0;
+    white-space: nowrap;
+  }
+  .app-content {
+    padding: 16px !important;
+  }
+  .app-pied {
+    display: none !important;
+  }
+  .etats-page {
+    padding: 16px !important;
+  }
+  .etats-page h1 {
+    font-size: 20px !important;
+  }
+}
+

@@ -35,14 +35,14 @@ export default function Dashboard() {
   }
 
   return (
-    <div style={styles.page}>
-      <aside style={styles.sidebar}>
+    <div style={styles.page} className="app-shell">
+      <aside style={styles.sidebar} className="app-sidebar">
         <div style={styles.marque}>
           <img src="/logo-archange-bebe.png" alt="Archange Bébé" style={styles.logoMarque} />
           <span>ARCHANGE BÉBÉ</span>
         </div>
 
-        <nav style={styles.nav}>
+        <nav style={styles.nav} className="app-nav">
           {LIENS.filter((lien) => !lien.adminSeulement || estAdmin).map((lien) => (
             <button key={lien.id} onClick={() => navigate(lien.chemin)} style={styles.boutonNav}>
               {lien.label}
@@ -54,10 +54,10 @@ export default function Dashboard() {
           Déconnexion
         </button>
 
-        <div style={styles.pied}>Gestion Commerciale et CRM by Phil</div>
+        <div style={styles.pied} className="app-pied">Gestion Commerciale et CRM by Phil</div>
       </aside>
 
-      <main style={styles.contenu}>
+      <main style={styles.contenu} className="app-content">
         <h1 style={styles.titre}>Bonjour, {utilisateur?.nomComplet || 'Administrateur'} 👋</h1>
 
         {erreur && <p style={{ color: 'var(--error)' }}>{erreur}</p>}

@@ -1338,23 +1338,26 @@ export default function Ventes() {
 
                 {resultats.length > 0 && (
                   <div style={styles.listeResultats}>
-                    {resultats.map((article) => (
-                      <button
-                        key={article.id}
-                        onClick={() => choisirResultat(article)}
-                        style={styles.itemResultat}
-                      >
-                        <div>
-                          <div style={{ fontWeight: 600 }}>{article.designation}</div>
-                          <div style={{ fontSize: 12, color: 'var(--brown-soft)' }}>
-                            Stock boutique : {article.stockLieu ?? article.stockActuel}
+                    {resultats.map((article) => {
+                      const stock = article.stockLieu ?? article.stockActuel;
+                      return (
+                        <button
+                          key={article.id}
+                          onClick={() => choisirResultat(article)}
+                          style={styles.itemResultat}
+                        >
+                          <div>
+                            <div style={{ fontWeight: 600 }}>{article.designation}</div>
+                            <div style={stock > 0 ? { fontSize: 12, color: 'var(--brown-soft)' } : styles.badgePasDeStock}>
+                              {stock > 0 ? `Stock boutique : ${stock}` : '⚠️ Pas de stock dans cette boutique'}
+                            </div>
                           </div>
-                        </div>
-                        <div style={{ fontWeight: 700, color: 'var(--gold-deep)' }}>
-                          {Number(article.prixVente).toLocaleString('fr-FR')} F
-                        </div>
-                      </button>
-                    ))}
+                          <div style={{ fontWeight: 700, color: 'var(--gold-deep)' }}>
+                            {Number(article.prixVente).toLocaleString('fr-FR')} F
+                          </div>
+                        </button>
+                      );
+                    })}
                   </div>
                 )}
                 {resultats.length === 0 && !erreurRecherche && (
@@ -1668,5 +1671,8 @@ const styles = {
   badgeStockAlerte: {
     fontSize: 12, marginTop: 4, fontWeight: 800, color: 'var(--error)',
     background: '#FBE4E1', padding: '3px 8px', borderRadius: 6, display: 'inline-block',
+  },
+  badgePasDeStock: {
+    fontSize: 12, marginTop: 2, fontWeight: 800, color: 'var(--error)',
   },
 };

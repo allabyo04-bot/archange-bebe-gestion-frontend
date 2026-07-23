@@ -99,6 +99,13 @@ function OngletReception({ lieux, articles }) {
     chargerReceptions();
   }, []);
 
+  // Le message d'erreur ne doit pas rester affiché une fois que la caissière a corrigé
+  // ce qui manquait (boutique choisie, article ajouté) — sans quoi on pourrait croire
+  // que ça bloque encore alors que ça repasserait très bien.
+  useEffect(() => {
+    setErreur('');
+  }, [lieuId, lignes.length]);
+
   function chargerReceptions() {
     setChargementListe(true);
     appelApi('GET', '/stock/receptions')

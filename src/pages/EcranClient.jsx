@@ -93,7 +93,7 @@ export default function EcranClient() {
 
 const styles = {
   page: {
-    minHeight: '100vh', display: 'flex', flexDirection: 'column',
+    height: '100vh', display: 'flex', flexDirection: 'column', overflow: 'hidden',
     background: 'var(--cream)', fontFamily: 'var(--font-body)', color: 'var(--brown-ink)',
   },
   entete: {
@@ -111,7 +111,7 @@ const styles = {
   },
   texteAttente: { fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 36, margin: 0, color: 'var(--gold-deep)' },
   sousTexteAttente: { fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 18, color: 'var(--bordeaux-deep)', marginTop: 12 },
-  listeArticles: { flex: 1, overflowY: 'auto', padding: '20px 32px', display: 'flex', flexDirection: 'column', gap: 14 },
+  listeArticles: { flex: 1, minHeight: 0, overflowY: 'auto', padding: '20px 32px', display: 'flex', flexDirection: 'column', gap: 14 },
   carteArticle: {
     display: 'flex', alignItems: 'center', gap: 16, background: 'var(--white)',
     borderRadius: 14, padding: 14, boxShadow: '0 2px 8px rgba(31,46,69,0.1)',
@@ -125,7 +125,7 @@ const styles = {
   designationArticle: { fontSize: 20, fontWeight: 700 },
   detailArticle: { fontSize: 15, color: 'var(--brown-soft)', marginTop: 2 },
   sousTotalArticle: { fontSize: 22, fontWeight: 700, color: 'var(--gold-deep)' },
-  piedTotal: { padding: '20px 32px', background: 'var(--brown-deep)', color: 'var(--white)' },
+  piedTotal: { flexShrink: 0, padding: '20px 32px', background: 'var(--brown-deep)', color: 'var(--white)' },
   ligneRemise: { fontSize: 16, color: 'var(--gold-light)', marginBottom: 6, textAlign: 'right' },
   totalGeant: { fontSize: 48, fontWeight: 800, textAlign: 'right' },
   pageRemerciement: {

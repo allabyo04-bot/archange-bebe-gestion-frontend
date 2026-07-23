@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { appelApi, getUtilisateur } from '../lib/api';
 import { diffuserEtatPanier, diffuserVenteValidee, ecouterCanal } from '../lib/broadcast';
@@ -133,6 +133,10 @@ export default function Ventes() {
 
   const [panier, setPanier] = useState([]);
   const [recherche, setRecherche] = useState('');
+  const champRechercheRef = useRef(null);
+  const minuteurScanRef = useRef(null);
+  const finPanierRef = useRef(null);
+  const [filtrePanier, setFiltrePanier] = useState('');
   const [resultats, setResultats] = useState([]);
   const [erreurRecherche, setErreurRecherche] = useState('');
   const [rechercheEnCours, setRechercheEnCours] = useState(false);
@@ -274,6 +278,13 @@ export default function Ventes() {
       chargerCredits();
     }
   }, [ongletActif, creditFiltre]);
+
+  // Fait défiler automatiquement le panier jusqu'au dernier article ajouté/modifié —
+  // sans ça, une longue liste oblige à scroller à la main pour voir/ajuster la dernière
+  // ligne qu'on vient de scanner.
+  useEffect(() => {
+    finPanierRef.current?.scrollIntoView({ block: 'nearest' });
+  }, [panier]);
 
   function ouvrirFormulaireReglement(vente) {
     setVenteReglementOuvert(vente.id);
@@ -499,9 +510,7 @@ export default function Ventes() {
     localStorage.setItem(CLE_STOCKAGE_ATTENTE, JSON.stringify(liste));
   }
 
-  async function gererRecherche(e) {
-    e.preventDefault();
-    const q = recherche.trim();
+  async function lancerRecherche(q) {
     if (!q) return;
 
     setRechercheEnCours(true);
@@ -520,6 +529,30 @@ export default function Ventes() {
       setErreurRecherche(err.message);
     } finally {
       setRechercheEnCours(false);
+      // Toujours redonner le focus au champ (scan ou recherche), pour enchaîner
+      // directement sur l'article suivant sans re-cliquer dedans.
+      champRechercheRef.current?.focus();
+    }
+  }
+
+  async function gererRecherche(e) {
+    e.preventDefault();
+    lancerRecherche(recherche.trim());
+  }
+
+  // Détecte un scan de code-barres (uniquement des chiffres, assez long pour ne
+  // pas déclencher sur une simple saisie manuelle en cours) et lance la recherche
+  // automatiquement, sans attendre un clic sur "Chercher" ou la touche Entrée —
+  // utile si le lecteur ne valide pas toujours par un retour chariot. Ne s'applique
+  // volontairement pas à la recherche par nom, qui reste manuelle (plusieurs
+  // résultats possibles à choisir).
+  function gererChangementRecherche(valeur) {
+    setRecherche(valeur);
+    if (minuteurScanRef.current) clearTimeout(minuteurScanRef.current);
+    if (/^\d{8,}$/.test(valeur.trim())) {
+      minuteurScanRef.current = setTimeout(() => {
+        lancerRecherche(valeur.trim());
+      }, 120);
     }
   }
 
@@ -536,6 +569,7 @@ export default function Ventes() {
         {
           articleId: article.id,
           designation: article.designation,
+          reference: article.reference || '',
           prixUnitaire: Number(article.prixVente),
           quantite: 1,
           stockDispo: article.stockLieu ?? article.stockActuel,
@@ -563,10 +597,12 @@ export default function Ventes() {
     ajouterAuPanier(article);
     setResultats([]);
     setRecherche('');
+    champRechercheRef.current?.focus();
   }
 
   function reinitialiserVente() {
     setPanier([]);
+    setFiltrePanier('');
     setRemisePourcent('');
     setMotifRemise('');
     setClientId('');
@@ -1323,11 +1359,12 @@ export default function Ventes() {
                 <h3 style={styles.titreBloc}>Ajouter un article</h3>
                 <form onSubmit={gererRecherche} style={styles.formRecherche}>
                   <input
+                    ref={champRechercheRef}
                     autoFocus
                     style={styles.champInput}
                     placeholder="Scanner ou taper un nom/code…"
                     value={recherche}
-                    onChange={(e) => setRecherche(e.target.value)}
+                    onChange={(e) => gererChangementRecherche(e.target.value)}
                   />
                   <button type="submit" style={styles.boutonRecherche} disabled={rechercheEnCours}>
                     {rechercheEnCours ? '…' : 'Chercher'}
@@ -1368,32 +1405,55 @@ export default function Ventes() {
               <div style={styles.colonnePanier}>
                 <h3 style={styles.titreBloc}>Panier</h3>
                 {panier.length === 0 && <p style={styles.texteMuet}>Aucun article ajouté.</p>}
-                {panier.map((ligne) => {
-                  const stockRestant = ligne.stockDispo != null ? ligne.stockDispo - ligne.quantite : null;
-                  return (
-                    <div key={ligne.articleId} style={styles.ligneAmpanier}>
-                      <div style={{ flex: 1 }}>
-                        <div style={{ fontWeight: 600, fontSize: 13 }}>{ligne.designation}</div>
-                        <div style={{ fontSize: 12, color: 'var(--brown-soft)' }}>
-                          {ligne.prixUnitaire.toLocaleString('fr-FR')} F × {ligne.quantite}
-                        </div>
-                        {stockRestant != null && (
-                          <div style={stockRestant < 0 ? styles.badgeStockAlerte : styles.badgeStock}>
-                            {stockRestant < 0
-                              ? `⚠️ Stock insuffisant (dispo : ${ligne.stockDispo})`
-                              : `Stock restant : ${stockRestant}`}
+
+                {panier.length > 4 && (
+                  <input
+                    style={{ ...styles.champInput, marginBottom: 8 }}
+                    placeholder="Retrouver un article du panier par nom ou code…"
+                    value={filtrePanier}
+                    onChange={(e) => setFiltrePanier(e.target.value)}
+                  />
+                )}
+
+                <div style={styles.listePanierScroll}>
+                  {panier
+                    .filter((ligne) => {
+                      const f = filtrePanier.trim().toLowerCase();
+                      if (!f) return true;
+                      return (
+                        ligne.designation.toLowerCase().includes(f) ||
+                        ligne.reference.toLowerCase().includes(f)
+                      );
+                    })
+                    .map((ligne) => {
+                    const stockRestant = ligne.stockDispo != null ? ligne.stockDispo - ligne.quantite : null;
+                    return (
+                      <div key={ligne.articleId} style={styles.ligneAmpanier}>
+                        <div style={{ flex: 1 }}>
+                          <div style={{ fontWeight: 600, fontSize: 13 }}>{ligne.designation}</div>
+                          <div style={{ fontSize: 12, color: 'var(--brown-soft)' }}>
+                            {ligne.reference ? `${ligne.reference} — ` : ''}{ligne.prixUnitaire.toLocaleString('fr-FR')} F × {ligne.quantite}
                           </div>
-                        )}
+                          {stockRestant != null && (
+                            <div style={stockRestant < 0 ? styles.badgeStockAlerte : styles.badgeStock}>
+                              {stockRestant < 0
+                                ? `⚠️ Stock insuffisant (dispo : ${ligne.stockDispo})`
+                                : `Stock restant : ${stockRestant}`}
+                            </div>
+                          )}
+                        </div>
+                        <div style={styles.controlesQuantite}>
+                          <button onClick={() => changerQuantite(ligne.articleId, -1)} style={styles.boutonQte}>−</button>
+                          <span>{ligne.quantite}</span>
+                          <button onClick={() => changerQuantite(ligne.articleId, 1)} style={styles.boutonQte}>+</button>
+                        </div>
+                        <button onClick={() => retirerDuPanier(ligne.articleId)} style={styles.boutonRetirer}>✕</button>
                       </div>
-                      <div style={styles.controlesQuantite}>
-                        <button onClick={() => changerQuantite(ligne.articleId, -1)} style={styles.boutonQte}>−</button>
-                        <span>{ligne.quantite}</span>
-                        <button onClick={() => changerQuantite(ligne.articleId, 1)} style={styles.boutonQte}>+</button>
-                      </div>
-                      <button onClick={() => retirerDuPanier(ligne.articleId)} style={styles.boutonRetirer}>✕</button>
-                    </div>
-                  );
-                })}
+                    );
+                  })}
+                  <div ref={finPanierRef} />
+                </div>
+
 
                 <div style={styles.blocRemise}>
                   <label style={styles.champLabel}>
@@ -1627,6 +1687,7 @@ const styles = {
   zonePrincipale: { display: 'grid', gridTemplateColumns: '1.2fr 1fr 1fr', gap: 16, flex: 1 },
   blocAjoutArticle: { background: 'var(--white)', borderRadius: 12, padding: 16 },
   colonnePanier: { background: 'var(--white)', borderRadius: 12, padding: 16 },
+  listePanierScroll: { maxHeight: 320, overflowY: 'auto', display: 'flex', flexDirection: 'column' },
   colonnePaiement: { background: 'var(--white)', borderRadius: 12, padding: 16, display: 'flex', flexDirection: 'column' },
   titreBloc: { margin: '0 0 8px 0', fontSize: 15 },
   texteMuet: { fontSize: 13, color: 'var(--brown-soft)' },

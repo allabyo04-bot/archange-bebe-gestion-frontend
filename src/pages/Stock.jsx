@@ -618,7 +618,11 @@ function OngletInventaire({ lieux, familles }) {
     setArticleChoisi(null);
     try {
       const reponse = await appelApi('GET', `/articles/recherche?q=${encodeURIComponent(q)}`);
-      setResultatsRecherche(reponse.resultats || []);
+      if (reponse.mode === 'exact' && reponse.resultats.length === 1) {
+        choisirArticle(reponse.resultats[0]);
+      } else {
+        setResultatsRecherche(reponse.resultats || []);
+      }
     } catch {
       setResultatsRecherche([]);
     }
@@ -797,7 +801,15 @@ function OngletInventaire({ lieux, familles }) {
         </div>
       )}
 
-      <button onClick={chargerInventaire} disabled={chargement || !cibleValide()} style={styles.boutonAjouter}>
+      <button
+        onClick={chargerInventaire}
+        disabled={chargement || !cibleValide()}
+        style={{
+          ...styles.boutonAjouter,
+          opacity: chargement || !cibleValide() ? 0.5 : 1,
+          cursor: chargement || !cibleValide() ? 'not-allowed' : 'pointer',
+        }}
+      >
         {chargement ? 'Chargement…' : "Charger l'inventaire"}
       </button>
 

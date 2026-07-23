@@ -19,17 +19,6 @@ const MODES_PAIEMENT = [
   'Wave', 'Carte bancaire', 'Bon d\'achat', 'Avoir',
 ];
 
-const CLE_STOCKAGE_ATTENTE = 'jesma_ventes_attente';
-
-function chargerVentesEnAttente() {
-  try {
-    const brut = localStorage.getItem(CLE_STOCKAGE_ATTENTE);
-    return brut ? JSON.parse(brut) : [];
-  } catch {
-    return [];
-  }
-}
-
 // ------------------------------------------------------------
 // TICKET DE CAISSE
 // ------------------------------------------------------------
@@ -210,8 +199,12 @@ export default function Ventes() {
   useEffect(() => {
     appelApi('GET', '/stock/lieux').then(setLieux).catch(() => {});
     appelApi('GET', '/clients').then(setClients).catch(() => {});
-    setVentesEnAttente(chargerVentesEnAttente());
+    rafraichirVentesEnAttente();
   }, []);
+
+  function rafraichirVentesEnAttente() {
+    appelApi('GET', '/ventes-en-attente').then(setVentesEnAttente).catch(() => {});
+  }
 
   // Si on arrive depuis la fiche d'un client fraîchement créé (?clientId=123), on le
   // présélectionne automatiquement dès que la liste des clients est chargée, puis on
@@ -505,11 +498,6 @@ export default function Ventes() {
     }
   }
 
-  function sauvegarderListeAttente(liste) {
-    setVentesEnAttente(liste);
-    localStorage.setItem(CLE_STOCKAGE_ATTENTE, JSON.stringify(liste));
-  }
-
   async function lancerRecherche(q) {
     if (!q) return;
 
@@ -665,28 +653,28 @@ export default function Ventes() {
     setPaiements((prec) => prec.filter((_, i) => i !== index));
   }
 
-  function mettreEnAttente() {
+  async function mettreEnAttente() {
     setErreurVente('');
     if (panier.length === 0) {
       setErreurVente('Le panier est vide, rien à mettre en attente.');
       return;
     }
+    if (!lieuId) {
+      setErreurVente('Sélectionnez une boutique avant de mettre en attente.');
+      return;
+    }
 
-    const venteSuspendue = {
-      id: Date.now(),
-      createdAt: new Date().toISOString(),
-      panier,
-      remisePourcent,
-      motifRemise,
-      lieuId,
-      vendeurId,
-      clientId,
-      typeVente,
-    };
-
-    sauvegarderListeAttente([venteSuspendue, ...ventesEnAttente]);
-    reinitialiserVente();
-    setConfirmation(null);
+    try {
+      await appelApi('POST', '/ventes-en-attente', {
+        lieuId: Number(lieuId),
+        donnees: { panier, remisePourcent, motifRemise, lieuId, vendeurId, clientId, typeVente },
+      });
+      rafraichirVentesEnAttente();
+      reinitialiserVente();
+      setConfirmation(null);
+    } catch (err) {
+      setErreurVente(err.message);
+    }
   }
 
   function reprendreVente(id) {
@@ -702,12 +690,14 @@ export default function Ventes() {
     setTypeVente(vente.typeVente);
     setPaiements([]);
 
-    sauvegarderListeAttente(ventesEnAttente.filter((v) => v.id !== id));
+    appelApi('DELETE', `/ventes-en-attente/${id}`).catch(() => {});
+    setVentesEnAttente((prec) => prec.filter((v) => v.id !== id));
     setOngletActif('nouvelle');
   }
 
   function supprimerVenteEnAttente(id) {
-    sauvegarderListeAttente(ventesEnAttente.filter((v) => v.id !== id));
+    appelApi('DELETE', `/ventes-en-attente/${id}`).catch(() => {});
+    setVentesEnAttente((prec) => prec.filter((v) => v.id !== id));
   }
 
   async function soumettreVente(pinAUtiliser) {

@@ -77,6 +77,20 @@ export default function Dashboard() {
               <div style={{ fontSize: 13, opacity: 0.7 }}>Demandes de remise</div>
               <div style={{ fontSize: 24, fontWeight: 700 }}>{dashboard.demandesRemiseEnAttente}</div>
             </div>
+            {estAdmin && (
+              <>
+                <div style={{ background: 'var(--cream-deep)', padding: 20, borderRadius: 12 }}>
+                  <div style={{ fontSize: 13, opacity: 0.7 }}>Remises du jour</div>
+                  <div style={{ fontSize: 24, fontWeight: 700 }}>{dashboard.remises.jour.total.toLocaleString('fr-FR')} F</div>
+                  <div style={{ fontSize: 12, opacity: 0.6 }}>{dashboard.remises.jour.nombre} vente(s) remisée(s)</div>
+                </div>
+                <div style={{ background: 'var(--cream-deep)', padding: 20, borderRadius: 12 }}>
+                  <div style={{ fontSize: 13, opacity: 0.7 }}>Remises du mois en cours</div>
+                  <div style={{ fontSize: 24, fontWeight: 700 }}>{dashboard.remises.mois.total.toLocaleString('fr-FR')} F</div>
+                  <div style={{ fontSize: 12, opacity: 0.6 }}>{dashboard.remises.mois.nombre} vente(s) remisée(s)</div>
+                </div>
+              </>
+            )}
           </div>
         )}
 

@@ -6,6 +6,7 @@ const SOUS_ONGLETS = [
   { id: 'reception', label: 'Réception' },
   { id: 'import', label: 'Import Excel' },
   { id: 'transferts', label: 'Transferts' },
+  { id: 'inventaire', label: 'Inventaire / Correction' },
   { id: 'historique', label: 'Historique des mouvements' },
   { id: 'etat', label: 'État du stock' },
   { id: 'etat-global', label: 'État global (tous dépôts)' },
@@ -30,10 +31,12 @@ export default function Stock() {
   const [ongletActif, setOngletActif] = useState('reception');
   const [lieux, setLieux] = useState([]);
   const [articles, setArticles] = useState([]);
+  const [familles, setFamilles] = useState([]);
 
   useEffect(() => {
     appelApi('GET', '/stock/lieux').then(setLieux).catch(() => {});
     appelApi('GET', '/articles').then(setArticles).catch(() => {});
+    appelApi('GET', '/familles').then(setFamilles).catch(() => {});
   }, []);
 
   return (
@@ -60,6 +63,7 @@ export default function Stock() {
       {ongletActif === 'reception' && <OngletReception lieux={lieux} articles={articles} />}
       {ongletActif === 'import' && <OngletImportExcel lieux={lieux} />}
       {ongletActif === 'transferts' && <OngletTransferts lieux={lieux} articles={articles} />}
+      {ongletActif === 'inventaire' && <OngletInventaire lieux={lieux} familles={familles} />}
       {ongletActif === 'historique' && <OngletHistorique articles={articles} lieux={lieux} />}
       {ongletActif === 'etat' && <OngletEtatStock lieux={lieux} />}
       {ongletActif === 'etat-global' && <OngletEtatGlobal lieux={lieux} articles={articles} />}
@@ -572,6 +576,274 @@ function OngletTransferts({ lieux, articles }) {
           ))}
         </div>
       </div>
+    </div>
+  );
+}
+
+// ------------------------------------------------------------
+// ONGLET INVENTAIRE / CORRECTION DE STOCK
+// (un article, une famille entière, ou une sous-famille entière — par boutique)
+// ------------------------------------------------------------
+function OngletInventaire({ lieux, familles }) {
+  const [lieuId, setLieuId] = useState('');
+  const [portee, setPortee] = useState('article');
+  const [familleId, setFamilleId] = useState('');
+  const [sousFamilleId, setSousFamilleId] = useState('');
+
+  const [rechercheArticle, setRechercheArticle] = useState('');
+  const [resultatsRecherche, setResultatsRecherche] = useState([]);
+  const [articleChoisi, setArticleChoisi] = useState(null);
+
+  const [lignes, setLignes] = useState(null); // null = pas encore chargé
+  const [chargement, setChargement] = useState(false);
+  const [erreur, setErreur] = useState('');
+  const [notes, setNotes] = useState('');
+  const [envoiEnCours, setEnvoiEnCours] = useState(false);
+  const [resultat, setResultat] = useState(null);
+
+  const familleActive = familles.find((f) => String(f.id) === familleId);
+  const sousFamillesDisponibles = familleActive ? familleActive.sousFamilles : [];
+
+  async function rechercherArticle(e) {
+    e.preventDefault();
+    const q = rechercheArticle.trim();
+    if (!q) return;
+    setArticleChoisi(null);
+    try {
+      const reponse = await appelApi('GET', `/articles/recherche?q=${encodeURIComponent(q)}`);
+      setResultatsRecherche(reponse.resultats || []);
+    } catch {
+      setResultatsRecherche([]);
+    }
+  }
+
+  function choisirArticle(a) {
+    setArticleChoisi(a);
+    setRechercheArticle('');
+    setResultatsRecherche([]);
+  }
+
+  function cibleValide() {
+    if (!lieuId) return false;
+    if (portee === 'article') return !!articleChoisi;
+    if (portee === 'famille') return !!familleId;
+    if (portee === 'sous-famille') return !!sousFamilleId;
+    return false;
+  }
+
+  async function chargerInventaire() {
+    setErreur('');
+    setResultat(null);
+    setLignes(null);
+    if (!cibleValide()) { setErreur('Choisis une boutique et une cible.'); return; }
+
+    const cibleId = portee === 'article' ? articleChoisi.id : portee === 'famille' ? familleId : sousFamilleId;
+    setChargement(true);
+    try {
+      const reponse = await appelApi(
+        'GET',
+        `/stock/inventaire?lieuId=${lieuId}&portee=${portee}&cibleId=${cibleId}`
+      );
+      setLignes(
+        reponse.articles.map((a) => ({ ...a, quantiteComptee: String(a.stockActuel) }))
+      );
+      if (reponse.articles.length === 0) setErreur('Aucun article trouvé pour cette sélection.');
+    } catch (err) {
+      setErreur(err.message);
+    } finally {
+      setChargement(false);
+    }
+  }
+
+  function modifierQuantite(articleId, valeur) {
+    setLignes((prec) => prec.map((l) => (l.articleId === articleId ? { ...l, quantiteComptee: valeur } : l)));
+  }
+
+  async function validerInventaire() {
+    setErreur('');
+    setResultat(null);
+    setEnvoiEnCours(true);
+    try {
+      const reponse = await appelApi('POST', '/stock/inventaire', {
+        lieuId: Number(lieuId),
+        notes: notes || undefined,
+        lignes: lignes.map((l) => ({ articleId: l.articleId, quantiteComptee: Number(l.quantiteComptee) || 0 })),
+      });
+      setResultat(reponse);
+      setLignes(null);
+    } catch (err) {
+      setErreur(err.message);
+    } finally {
+      setEnvoiEnCours(false);
+    }
+  }
+
+  return (
+    <div style={styles.carte}>
+      <h3 style={styles.titreCarte}>Inventaire / Correction de stock</h3>
+      <p style={styles.texteMuet}>
+        Compte le stock réel pour un article, toute une famille ou toute une sous-famille, dans une boutique
+        donnée. Seuls les écarts avec le stock système sont corrigés — chaque correction est tracée dans
+        l'historique des mouvements.
+      </p>
+
+      {erreur && <div style={styles.bandeauErreur}>{erreur}</div>}
+      {resultat && (
+        <div style={styles.bandeauConfirmation}>
+          Inventaire appliqué : {resultat.corrections} correction(s), {resultat.inchanges} article(s) déjà juste(s).
+          {resultat.erreurs.length > 0 && ` ${resultat.erreurs.length} erreur(s).`}
+        </div>
+      )}
+
+      <div style={styles.ligneChamps}>
+        <label style={styles.champLabel}>
+          Boutique / Entrepôt
+          <select style={styles.champInput} value={lieuId} onChange={(e) => setLieuId(e.target.value)}>
+            <option value="">—</option>
+            {lieux.map((l) => (
+              <option key={l.id} value={l.id}>{l.nom}</option>
+            ))}
+          </select>
+        </label>
+        <label style={styles.champLabel}>
+          Portée
+          <select
+            style={styles.champInput}
+            value={portee}
+            onChange={(e) => { setPortee(e.target.value); setLignes(null); setResultat(null); }}
+          >
+            <option value="article">Un seul article</option>
+            <option value="famille">Toute une famille</option>
+            <option value="sous-famille">Toute une sous-famille</option>
+          </select>
+        </label>
+      </div>
+
+      {portee === 'article' && (
+        <>
+          <form onSubmit={rechercherArticle} style={styles.ligneChamps}>
+            <label style={{ ...styles.champLabel, flex: 1 }}>
+              Article à inventorier
+              <input
+                style={styles.champInput}
+                placeholder="Désignation ou référence…"
+                value={rechercheArticle}
+                onChange={(e) => setRechercheArticle(e.target.value)}
+              />
+            </label>
+            <button type="submit" style={styles.boutonAjouter}>Chercher</button>
+          </form>
+          {resultatsRecherche.length > 0 && (
+            <div style={styles.listeLignes}>
+              {resultatsRecherche.map((a) => (
+                <button key={a.id} type="button" onClick={() => choisirArticle(a)} style={styles.itemResultatScan}>
+                  {a.designation} ({a.reference})
+                </button>
+              ))}
+            </div>
+          )}
+          {articleChoisi && (
+            <div style={styles.ligneItem}>
+              <span>{articleChoisi.designation} ({articleChoisi.reference})</span>
+              <button onClick={() => setArticleChoisi(null)} style={styles.boutonRetirer}>✕</button>
+            </div>
+          )}
+        </>
+      )}
+
+      {portee === 'famille' && (
+        <label style={styles.champLabel}>
+          Famille
+          <select style={styles.champInput} value={familleId} onChange={(e) => setFamilleId(e.target.value)}>
+            <option value="">—</option>
+            {familles.map((f) => (
+              <option key={f.id} value={f.id}>{f.nom}</option>
+            ))}
+          </select>
+        </label>
+      )}
+
+      {portee === 'sous-famille' && (
+        <div style={styles.ligneChamps}>
+          <label style={styles.champLabel}>
+            Famille
+            <select
+              style={styles.champInput}
+              value={familleId}
+              onChange={(e) => { setFamilleId(e.target.value); setSousFamilleId(''); }}
+            >
+              <option value="">—</option>
+              {familles.map((f) => (
+                <option key={f.id} value={f.id}>{f.nom}</option>
+              ))}
+            </select>
+          </label>
+          <label style={styles.champLabel}>
+            Sous-famille
+            <select style={styles.champInput} value={sousFamilleId} onChange={(e) => setSousFamilleId(e.target.value)} disabled={!familleId}>
+              <option value="">—</option>
+              {sousFamillesDisponibles.map((sf) => (
+                <option key={sf.id} value={sf.id}>{sf.nom}</option>
+              ))}
+            </select>
+          </label>
+        </div>
+      )}
+
+      <button onClick={chargerInventaire} disabled={chargement || !cibleValide()} style={styles.boutonAjouter}>
+        {chargement ? 'Chargement…' : "Charger l'inventaire"}
+      </button>
+
+      {lignes && lignes.length > 0 && (
+        <>
+          <div style={{ ...styles.tableauScroll, marginTop: 16 }}>
+            <table style={styles.tableau}>
+              <thead>
+                <tr>
+                  <th style={styles.th}>Article</th>
+                  <th style={styles.th}>Référence</th>
+                  <th style={styles.th}>Stock système</th>
+                  <th style={styles.th}>Quantité comptée</th>
+                  <th style={styles.th}>Écart</th>
+                </tr>
+              </thead>
+              <tbody>
+                {lignes.map((l) => {
+                  const ecart = (Number(l.quantiteComptee) || 0) - l.stockActuel;
+                  return (
+                    <tr key={l.articleId}>
+                      <td style={styles.td}>{l.designation}</td>
+                      <td style={styles.td}>{l.reference}</td>
+                      <td style={styles.td}>{l.stockActuel}</td>
+                      <td style={styles.td}>
+                        <input
+                          type="number"
+                          min="0"
+                          style={{ ...styles.champInput, minWidth: 90 }}
+                          value={l.quantiteComptee}
+                          onChange={(e) => modifierQuantite(l.articleId, e.target.value)}
+                        />
+                      </td>
+                      <td style={{ ...styles.td, color: ecart === 0 ? 'var(--brown-soft)' : ecart > 0 ? '#1E6B36' : 'var(--error)', fontWeight: 700 }}>
+                        {ecart > 0 ? `+${ecart}` : ecart}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+
+          <label style={{ ...styles.champLabel, marginTop: 12 }}>
+            Motif / notes
+            <input style={styles.champInput} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Optionnel…" />
+          </label>
+
+          <button onClick={validerInventaire} disabled={envoiEnCours} style={{ ...styles.boutonValider, marginTop: 8 }}>
+            {envoiEnCours ? 'Application…' : "Valider l'inventaire"}
+          </button>
+        </>
+      )}
     </div>
   );
 }

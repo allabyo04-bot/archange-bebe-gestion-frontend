@@ -114,6 +114,16 @@ function imprimerTicketDepuisHtml(html) {
   fenetre.document.close();
 }
 
+// Retrouve le client comptoir de façon fiable : d'abord par son indicateur dédié,
+// et par son nom en repli (au cas où l'indicateur n'aurait pas encore été posé côté
+// serveur sur d'anciennes données) — jamais bloquant pour la caissière.
+function trouverClientComptoir(clients) {
+  return (
+    clients.find((c) => c.estComptoir) ||
+    clients.find((c) => c.nomComplet.trim().toLowerCase() === 'client comptoir')
+  );
+}
+
 export default function Ventes() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -213,7 +223,7 @@ export default function Ventes() {
       return;
     }
     if (!clientId && clients.length > 0) {
-      const comptoir = clients.find((c) => c.nomComplet === 'Client Comptoir');
+      const comptoir = trouverClientComptoir(clients);
       if (comptoir) setClientId(String(comptoir.id));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -667,7 +677,7 @@ export default function Ventes() {
   async function soumettreVente(pinAUtiliser) {
     const idClientFinal = clientId
       ? Number(clientId)
-      : clients.find((c) => c.nomComplet === 'Client Comptoir')?.id;
+      : trouverClientComptoir(clients)?.id;
 
     return appelApi('POST', '/ventes', {
       lieuId: Number(lieuId),
@@ -739,12 +749,9 @@ export default function Ventes() {
       return;
     }
 
-    // Un client est toujours associé à la vente, quitte à retomber sur "Client Comptoir"
-    // si la caissière n'en a choisi aucun (client anonyme).
-    if (!clientId && !clients.find((c) => c.nomComplet === 'Client Comptoir')) {
-      setErreurVente('Aucun client sélectionné, et "Client Comptoir" n\'existe pas encore — crée-le une fois dans Clients.');
-      return;
-    }
+    // Si aucun client n'est choisi, la vente est associée à "Client Comptoir" — le
+    // serveur s'en charge lui-même (le retrouve ou le crée si besoin), donc rien à
+    // vérifier ici : la vente ne doit jamais être bloquée pour cette raison.
 
     setVenteEnCours(true);
     try {

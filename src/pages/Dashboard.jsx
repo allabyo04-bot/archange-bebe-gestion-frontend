@@ -93,6 +93,46 @@ export default function Dashboard() {
             )}
           </div>
         )}
+
+        {dashboard && estAdmin && dashboard.parBoutique.length > 0 && (
+          <div style={{ marginTop: 32, maxWidth: 800 }}>
+            <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 18, marginBottom: 12 }}>
+              Objectif du mois par boutique
+            </h2>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+              {dashboard.parBoutique.map((b) => (
+                <div key={b.lieuId} style={{ background: 'var(--cream-deep)', padding: 20, borderRadius: 12 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 8 }}>
+                    <span style={{ fontWeight: 700, fontFamily: 'var(--font-display)' }}>{b.nom}</span>
+                    <span style={{ fontSize: 13, opacity: 0.7 }}>
+                      {b.ventesMois.toLocaleString('fr-FR')} F / {b.objectifMensuel.toLocaleString('fr-FR')} F ({b.pourcentageObjectif}%)
+                    </span>
+                  </div>
+                  <div style={{ background: 'var(--cream)', borderRadius: 8, height: 14, overflow: 'hidden' }}>
+                    <div
+                      style={{
+                        width: `${Math.min(100, b.pourcentageObjectif)}%`,
+                        height: '100%',
+                        background: b.pourcentageObjectif >= 100 ? '#1E6B36' : 'var(--gold-deep)',
+                        transition: 'width 0.3s',
+                      }}
+                    />
+                  </div>
+                  <div style={{ display: 'flex', gap: 20, marginTop: 10, fontSize: 13, opacity: 0.8, flexWrap: 'wrap' }}>
+                    <span>Coût d'achat : {b.coutMarchandiseMois.toLocaleString('fr-FR')} F</span>
+                    <span>Dépenses : {b.depensesMois.toLocaleString('fr-FR')} F</span>
+                    <span style={{ fontWeight: 700, color: b.margeMois >= 0 ? '#1E6B36' : 'var(--error)' }}>
+                      Marge nette du mois : {b.margeMois.toLocaleString('fr-FR')} F
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <p style={{ fontSize: 12, opacity: 0.6, marginTop: 10 }}>
+              L'objectif de chaque boutique se règle dans Paramètres → Lieux.
+            </p>
+          </div>
+        )}
       </main>
     </div>
   );

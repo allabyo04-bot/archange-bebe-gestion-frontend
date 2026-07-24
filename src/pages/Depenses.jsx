@@ -189,8 +189,14 @@ function FormulaireDepense({ categories, onFermer, onCree }) {
   const [montant, setMontant] = useState('');
   const [description, setDescription] = useState('');
   const [dateDepense, setDateDepense] = useState(formatDate(new Date()));
+  const [lieuId, setLieuId] = useState('');
+  const [lieux, setLieux] = useState([]);
   const [erreur, setErreur] = useState('');
   const [envoiEnCours, setEnvoiEnCours] = useState(false);
+
+  useEffect(() => {
+    appelApi('GET', '/stock/lieux').then(setLieux).catch(() => {});
+  }, []);
 
   async function gererSoumission(e) {
     e.preventDefault();
@@ -208,6 +214,7 @@ function FormulaireDepense({ categories, onFermer, onCree }) {
         montant: Number(montant),
         description: description || undefined,
         dateDepense,
+        lieuId: lieuId || undefined,
       });
       onCree();
     } catch (err) {
@@ -247,6 +254,16 @@ function FormulaireDepense({ categories, onFermer, onCree }) {
         <label style={styles.champLabel}>
           Description
           <input style={styles.champInput} value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Optionnel…" />
+        </label>
+
+        <label style={styles.champLabel}>
+          Boutique concernée
+          <select style={styles.champInput} value={lieuId} onChange={(e) => setLieuId(e.target.value)}>
+            <option value="">— Non affectée —</option>
+            {lieux.map((l) => (
+              <option key={l.id} value={l.id}>{l.nom}</option>
+            ))}
+          </select>
         </label>
 
         <div style={styles.boutonsFormulaire}>

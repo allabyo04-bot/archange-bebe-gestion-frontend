@@ -780,10 +780,11 @@ export default function Ventes() {
     // vérifier ici : la vente ne doit jamais être bloquée pour cette raison.
 
     setVenteEnCours(true);
+    let venteCreee;
     try {
-      const vente = await soumettreVente();
-      finaliserApresVente(vente);
+      venteCreee = await soumettreVente();
     } catch (err) {
+      setVenteEnCours(false);
       if (err.pinAdminRequis) {
         setPinDemande(true);
         setPinSaisi('');
@@ -791,8 +792,20 @@ export default function Ventes() {
       } else {
         setErreurVente(err.message);
       }
-    } finally {
-      setVenteEnCours(false);
+      return;
+    }
+    setVenteEnCours(false);
+
+    // À partir d'ici, la vente est déjà enregistrée côté serveur (stock décompté).
+    // Un souci d'impression du ticket ou de l'écran client ne doit plus jamais faire
+    // croire à un échec de la vente, ni laisser le panier revalidable — sans quoi on
+    // risquerait de vendre les mêmes articles une seconde fois.
+    try {
+      finaliserApresVente(venteCreee);
+    } catch {
+      reinitialiserVente();
+      setConfirmation({ ...venteCreee, montantRestantAffiche: estCredit ? resteAPayer : 0 });
+      setErreurVente("La vente est bien enregistrée, mais le ticket ou l'écran client n'a pas pu s'afficher correctement.");
     }
   }
 
@@ -803,15 +816,26 @@ export default function Ventes() {
     }
     setPinEnCours(true);
     setPinErreur('');
+    let venteCreee;
     try {
-      const vente = await soumettreVente(pinSaisi.trim());
-      setPinDemande(false);
-      setPinSaisi('');
-      finaliserApresVente(vente);
+      venteCreee = await soumettreVente(pinSaisi.trim());
     } catch (err) {
       setPinErreur(err.message);
-    } finally {
       setPinEnCours(false);
+      return;
+    }
+    setPinDemande(false);
+    setPinSaisi('');
+    setPinEnCours(false);
+
+    // Même précaution qu'après une validation normale : la vente est déjà
+    // enregistrée, un souci d'affichage ne doit pas donner envie de revalider.
+    try {
+      finaliserApresVente(venteCreee);
+    } catch {
+      reinitialiserVente();
+      setConfirmation({ ...venteCreee, montantRestantAffiche: estCredit ? resteAPayer : 0 });
+      setErreurVente("La vente est bien enregistrée, mais le ticket ou l'écran client n'a pas pu s'afficher correctement.");
     }
   }
 

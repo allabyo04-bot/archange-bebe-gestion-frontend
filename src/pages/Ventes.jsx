@@ -146,6 +146,11 @@ export default function Ventes() {
   const [clients, setClients] = useState([]);
   const [clientId, setClientId] = useState('');
   const [clientSearch, setClientSearch] = useState('');
+  const [creationClientOuverte, setCreationClientOuverte] = useState(false);
+  const [nouveauClientNom, setNouveauClientNom] = useState('');
+  const [nouveauClientTel, setNouveauClientTel] = useState('');
+  const [creationClientEnCours, setCreationClientEnCours] = useState(false);
+  const [erreurCreationClient, setErreurCreationClient] = useState('');
 
   const [paiements, setPaiements] = useState([]);
   const [modeAAjouter, setModeAAjouter] = useState(MODES_PAIEMENT[0]);
@@ -579,6 +584,36 @@ export default function Ventes() {
 
   function retirerDuPanier(articleId) {
     setPanier((prec) => prec.filter((l) => l.articleId !== articleId));
+  }
+
+  function ouvrirCreationClient() {
+    setNouveauClientNom(clientSearch.trim());
+    setNouveauClientTel('');
+    setErreurCreationClient('');
+    setCreationClientOuverte(true);
+  }
+
+  async function creerClientRapide() {
+    if (!nouveauClientNom.trim()) {
+      setErreurCreationClient('Le nom est requis.');
+      return;
+    }
+    setCreationClientEnCours(true);
+    setErreurCreationClient('');
+    try {
+      const nouveau = await appelApi('POST', '/clients', {
+        nomComplet: nouveauClientNom.trim(),
+        telephone: nouveauClientTel.trim() || undefined,
+      });
+      setClients((prec) => [...prec, nouveau]);
+      setClientId(String(nouveau.id));
+      setClientSearch('');
+      setCreationClientOuverte(false);
+    } catch (err) {
+      setErreurCreationClient(err.message);
+    } finally {
+      setCreationClientEnCours(false);
+    }
   }
 
   function choisirResultat(article) {
@@ -1279,12 +1314,17 @@ export default function Ventes() {
                   </div>
                 ) : (
                   <>
-                    <input
-                      style={styles.champInput}
-                      placeholder="Rechercher un client (nom ou téléphone)…"
-                      value={clientSearch}
-                      onChange={(e) => setClientSearch(e.target.value)}
-                    />
+                    <div style={{ display: 'flex', gap: 8 }}>
+                      <input
+                        style={{ ...styles.champInput, flex: 1 }}
+                        placeholder="Rechercher un client (nom ou téléphone)…"
+                        value={clientSearch}
+                        onChange={(e) => setClientSearch(e.target.value)}
+                      />
+                      <button type="button" onClick={ouvrirCreationClient} style={styles.boutonAjouterPaiement}>
+                        + Nouveau
+                      </button>
+                    </div>
                     {clientSearch.trim() && (
                       <div style={styles.listeResultatsClient}>
                         {clients
@@ -1308,7 +1348,7 @@ export default function Ventes() {
                           (c.telephone || '').includes(clientSearch)
                         ).length === 0 && (
                           <div style={{ padding: '8px 10px', fontSize: 13, color: 'var(--brown-soft)' }}>
-                            Aucun client trouvé.
+                            Aucun client trouvé. <button type="button" onClick={ouvrirCreationClient} style={styles.lienCreerClient}>+ Créer "{clientSearch.trim()}"</button>
                           </div>
                         )}
                       </div>
@@ -1634,6 +1674,41 @@ export default function Ventes() {
           </>
         )}
 
+        {creationClientOuverte && (
+          <div style={styles.overlayPin}>
+            <div style={styles.modalePin}>
+              <h3 style={{ marginTop: 0 }}>Nouveau client</h3>
+              {erreurCreationClient && <div style={styles.bandeauErreur}>{erreurCreationClient}</div>}
+              <label style={styles.champLabel}>
+                Nom complet *
+                <input
+                  autoFocus
+                  style={styles.champInput}
+                  value={nouveauClientNom}
+                  onChange={(e) => setNouveauClientNom(e.target.value)}
+                />
+              </label>
+              <label style={styles.champLabel}>
+                Téléphone
+                <input
+                  style={styles.champInput}
+                  value={nouveauClientTel}
+                  onChange={(e) => setNouveauClientTel(e.target.value)}
+                  placeholder="Optionnel…"
+                />
+              </label>
+              <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+                <button onClick={() => setCreationClientOuverte(false)} style={styles.boutonAnnulerVente} disabled={creationClientEnCours}>
+                  Annuler
+                </button>
+                <button onClick={creerClientRapide} style={styles.boutonValider} disabled={creationClientEnCours}>
+                  {creationClientEnCours ? 'Création…' : 'Créer et sélectionner'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {pinDemande && (
           <div style={styles.overlayPin}>
             <div style={styles.modalePin}>
@@ -1734,6 +1809,7 @@ const styles = {
   boutonsAction: { marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: 8, paddingTop: 12 },
   boutonAttente: { padding: '10px 14px', borderRadius: 8, border: '1px solid var(--gold-mid)', background: 'transparent', cursor: 'pointer' },
   boutonAnnulerVente: { padding: '10px 14px', borderRadius: 8, border: '1px solid var(--error)', background: 'transparent', color: 'var(--error)', cursor: 'pointer', fontWeight: 600 },
+  lienCreerClient: { border: 'none', background: 'transparent', color: 'var(--gold-deep)', cursor: 'pointer', fontWeight: 700, textDecoration: 'underline', padding: 0, fontSize: 13 },
   boutonValider: { padding: '10px 14px', borderRadius: 8, border: 'none', background: 'var(--gold-deep)', color: 'var(--white)', cursor: 'pointer', fontWeight: 600 },
   listeAttente: { display: 'flex', flexDirection: 'column', gap: 10, maxWidth: 600 },
   carteAttente: { background: 'var(--white)', borderRadius: 12, padding: 14, display: 'flex', flexDirection: 'column', gap: 6 },

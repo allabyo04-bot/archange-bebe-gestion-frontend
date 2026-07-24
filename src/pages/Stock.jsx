@@ -689,6 +689,44 @@ function OngletInventaire({ lieux, familles }) {
     }
   }
 
+  function imprimerFeuilleInventaire() {
+    const lieuNom = lieux.find((l) => String(l.id) === lieuId)?.nom || '';
+    const lignesHtml = lignes.map((l) => `
+      <tr>
+        <td>${l.designation}</td>
+        <td>${l.reference}</td>
+        <td style="text-align:center">${l.stockActuel}</td>
+        <td style="border-left:1px solid #000;"></td>
+      </tr>
+    `).join('');
+
+    const html = `<!DOCTYPE html>
+<html lang="fr"><head><meta charset="UTF-8"><title>Feuille d'inventaire</title>
+<style>
+  body { font-family: Arial, sans-serif; padding: 20px; }
+  h1 { font-size: 18px; margin-bottom: 4px; }
+  .sousTitre { font-size: 13px; color: #555; margin-bottom: 16px; }
+  table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  th, td { border: 1px solid #999; padding: 6px 8px; text-align: left; }
+  th { background: #eee; }
+  td:nth-child(4), th:nth-child(4) { width: 120px; }
+</style></head>
+<body>
+  <h1>Feuille d'inventaire — Archange Bébé</h1>
+  <div class="sousTitre">Boutique : ${lieuNom} — Date : ${new Date().toLocaleDateString('fr-FR')} — ${lignes.length} article(s)</div>
+  <table>
+    <thead><tr><th>Article</th><th>Référence</th><th>Stock système</th><th>Quantité comptée</th></tr></thead>
+    <tbody>${lignesHtml}</tbody>
+  </table>
+  <script>window.onload = () => window.print();</script>
+</body></html>`;
+
+    const fenetre = window.open('', '_blank');
+    if (!fenetre) return;
+    fenetre.document.write(html);
+    fenetre.document.close();
+  }
+
   return (
     <div style={styles.carte}>
       <h3 style={styles.titreCarte}>Inventaire / Correction de stock</h3>
@@ -815,7 +853,12 @@ function OngletInventaire({ lieux, familles }) {
 
       {lignes && lignes.length > 0 && (
         <>
-          <div style={{ ...styles.tableauScroll, marginTop: 16 }}>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 16 }}>
+            <button type="button" onClick={imprimerFeuilleInventaire} style={styles.boutonAjouter}>
+              🖨️ Imprimer la feuille de comptage
+            </button>
+          </div>
+          <div style={{ ...styles.tableauScroll, marginTop: 8 }}>
             <table style={styles.tableau}>
               <thead>
                 <tr>

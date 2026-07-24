@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { appelApi, uploaderFichierImport } from '../lib/api';
 
@@ -94,6 +94,21 @@ function OngletReception({ lieux, articles }) {
   const [rechercheArticle, setRechercheArticle] = useState('');
   const [resultatsRecherche, setResultatsRecherche] = useState([]);
   const [erreurRecherche, setErreurRecherche] = useState('');
+  const minuteurScanReceptionRef = useRef(null);
+  const champScanReceptionRef = useRef(null);
+
+  // Stock déjà présent pour chaque article, dans la boutique choisie — affiché au
+  // moment de choisir l'article, pour ne pas recevoir "à l'aveugle".
+  const [stockLieuMap, setStockLieuMap] = useState({});
+
+  useEffect(() => {
+    if (!lieuId) { setStockLieuMap({}); return; }
+    appelApi('GET', `/stock/lieux/${lieuId}/stock`)
+      .then((liste) => {
+        setStockLieuMap(Object.fromEntries(liste.map((s) => [s.articleId, s.quantite])));
+      })
+      .catch(() => setStockLieuMap({}));
+  }, [lieuId]);
 
   useEffect(() => {
     chargerReceptions();
@@ -120,6 +135,51 @@ function OngletReception({ lieux, articles }) {
     setPrixAchatAAjouter(article ? String(article.prixAchat ?? '') : '');
   }
 
+  function ajouterLigneParScan(article) {
+    setLignes((prec) => {
+      const existant = prec.find((l) => l.articleId === article.id);
+      if (existant) {
+        return prec.map((l) =>
+          l.articleId === article.id ? { ...l, quantite: l.quantite + 1 } : l
+        );
+      }
+      return [
+        ...prec,
+        {
+          articleId: article.id,
+          designation: article.designation,
+          quantite: 1,
+          prixAchat: Number(article.prixAchat) || 0,
+          datePeremption: null,
+        },
+      ];
+    });
+    setRechercheArticle('');
+    setResultatsRecherche([]);
+    setErreurRecherche('');
+    champScanReceptionRef.current?.focus();
+  }
+
+  // Détecte un scan de code-barres (uniquement des chiffres) et ajoute directement
+  // la ligne à la réception, sans avoir à cliquer "Chercher" puis "Ajouter" à chaque
+  // article — même principe que la recherche en caisse. Un même article scanné
+  // plusieurs fois voit simplement sa quantité augmenter d'autant.
+  function gererChangementRechercheReception(valeur) {
+    setRechercheArticle(valeur);
+    if (minuteurScanReceptionRef.current) clearTimeout(minuteurScanReceptionRef.current);
+    if (/^\d{8,}$/.test(valeur.trim())) {
+      minuteurScanReceptionRef.current = setTimeout(() => {
+        const code = valeur.trim();
+        const article = articles.find((a) => a.codeBarre === code || a.codeInterne === code);
+        if (article) {
+          ajouterLigneParScan(article);
+        } else {
+          setErreurRecherche(`Aucun article trouvé pour "${code}".`);
+        }
+      }, 120);
+    }
+  }
+
   function rechercherArticleScan(e) {
     e.preventDefault();
     const q = rechercheArticle.trim();
@@ -135,8 +195,7 @@ function OngletReception({ lieux, articles }) {
         (a.reference && a.reference.toLowerCase() === qLower)
     );
     if (exact) {
-      gererChoixArticle(String(exact.id));
-      setRechercheArticle('');
+      ajouterLigneParScan(exact);
       return;
     }
 
@@ -149,8 +208,7 @@ function OngletReception({ lieux, articles }) {
       .slice(0, 8);
 
     if (partiels.length === 1) {
-      gererChoixArticle(String(partiels[0].id));
-      setRechercheArticle('');
+      ajouterLigneParScan(partiels[0]);
     } else if (partiels.length > 1) {
       setResultatsRecherche(partiels);
     } else {
@@ -159,9 +217,7 @@ function OngletReception({ lieux, articles }) {
   }
 
   function choisirResultatScan(article) {
-    gererChoixArticle(String(article.id));
-    setRechercheArticle('');
-    setResultatsRecherche([]);
+    ajouterLigneParScan(article);
   }
 
   function ajouterLigne() {
@@ -228,6 +284,11 @@ function OngletReception({ lieux, articles }) {
       setReference('');
       setNotes('');
       chargerReceptions();
+      if (lieuId) {
+        appelApi('GET', `/stock/lieux/${lieuId}/stock`)
+          .then((liste) => setStockLieuMap(Object.fromEntries(liste.map((s) => [s.articleId, s.quantite]))))
+          .catch(() => {});
+      }
     } catch (err) {
       setErreur(err.message);
     } finally {
@@ -278,11 +339,12 @@ function OngletReception({ lieux, articles }) {
           <label style={{ ...styles.champLabel, flex: 1 }}>
             Scanner ou rechercher un article
             <input
+              ref={champScanReceptionRef}
               autoFocus
               style={styles.champInput}
               placeholder="Scanner le code-barre ou taper nom/référence…"
               value={rechercheArticle}
-              onChange={(e) => setRechercheArticle(e.target.value)}
+              onChange={(e) => gererChangementRechercheReception(e.target.value)}
             />
           </label>
           <button type="submit" style={styles.boutonAjouter}>Chercher</button>
@@ -314,6 +376,11 @@ function OngletReception({ lieux, articles }) {
                 <option key={a.id} value={a.id}>{a.designation} ({a.reference})</option>
               ))}
             </select>
+            {articleAAjouter && lieuId && (
+              <span style={{ fontSize: 12, color: 'var(--brown-soft)', fontWeight: 600 }}>
+                Déjà en stock ici : {stockLieuMap[Number(articleAAjouter)] ?? 0}
+              </span>
+            )}
           </label>
           <label style={styles.champLabel}>
             Qté
@@ -355,6 +422,11 @@ function OngletReception({ lieux, articles }) {
                 <span style={{ fontWeight: 600 }}>
                   × {l.quantite} — {l.prixAchat.toLocaleString('fr-FR')} F/u
                   {l.datePeremption && ` — Périme le ${new Date(l.datePeremption).toLocaleDateString('fr-FR')}`}
+                  {lieuId && (
+                    <span style={{ fontWeight: 400, color: 'var(--brown-soft)' }}>
+                      {' '}(déjà {stockLieuMap[l.articleId] ?? 0} en stock)
+                    </span>
+                  )}
                 </span>
                 <button onClick={() => retirerLigne(l.articleId)} style={styles.boutonRetirer}>✕</button>
               </div>

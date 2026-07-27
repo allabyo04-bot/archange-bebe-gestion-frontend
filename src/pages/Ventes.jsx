@@ -252,10 +252,16 @@ export default function Ventes() {
 
   useEffect(() => {
     if (!estAdmin && !lieuId && lieux.length > 0) {
-      const boutique = lieux.find((l) => l.type === 'BOUTIQUE') || lieux[0];
+      // La boutique assignée au compte (Utilisateurs → Boutique assignée) prime
+      // toujours ; à défaut (compte non assigné), on retombe sur la première
+      // boutique disponible.
+      const lieuAssigne = utilisateur?.lieuId
+        ? lieux.find((l) => l.id === utilisateur.lieuId)
+        : null;
+      const boutique = lieuAssigne || lieux.find((l) => l.type === 'BOUTIQUE') || lieux[0];
       if (boutique) setLieuId(String(boutique.id));
     }
-  }, [lieux, estAdmin, lieuId]);
+  }, [lieux, estAdmin, lieuId, utilisateur]);
 
   async function chargerCredits() {
     setCreditChargement(true);

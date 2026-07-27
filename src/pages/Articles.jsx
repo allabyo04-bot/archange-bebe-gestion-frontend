@@ -30,6 +30,37 @@ export default function Articles() {
   const [erreurReimpression, setErreurReimpression] = useState('');
   const [impressionReimpressionEnCours, setImpressionReimpressionEnCours] = useState(false);
 
+  // --- Rechercher un article à modifier (n'importe lequel, sans avoir à faire défiler) ---
+  const [panneauModifOuvert, setPanneauModifOuvert] = useState(false);
+  const [rechercheModif, setRechercheModif] = useState('');
+  const [resultatsModif, setResultatsModif] = useState([]);
+  const [rechercheModifEnCours, setRechercheModifEnCours] = useState(false);
+
+  function ouvrirPanneauModif() {
+    setPanneauModifOuvert(true);
+    setRechercheModif('');
+    setResultatsModif([]);
+  }
+
+  async function rechercherPourModif(texte) {
+    setRechercheModif(texte);
+    if (texte.trim().length < 2) { setResultatsModif([]); return; }
+    setRechercheModifEnCours(true);
+    try {
+      const reponse = await appelApi('GET', `/articles/recherche?q=${encodeURIComponent(texte.trim())}`);
+      setResultatsModif(reponse.resultats || []);
+    } catch {
+      setResultatsModif([]);
+    } finally {
+      setRechercheModifEnCours(false);
+    }
+  }
+
+  function choisirArticlePourModif(article) {
+    setPanneauModifOuvert(false);
+    ouvrirEdition(article);
+  }
+
   function ouvrirPanneauReimpression() {
     setPanneauReimpressionOuvert(true);
     setRechercheReimpression('');
@@ -186,6 +217,9 @@ export default function Articles() {
           <button onClick={ouvrirPanneauReimpression} style={styles.boutonRetour}>
             🖨️ Réimprimer une étiquette
           </button>
+          <button onClick={ouvrirPanneauModif} style={styles.boutonRetour}>
+            🔍 Modifier un article
+          </button>
           <button onClick={ouvrirCreation} style={styles.boutonAjouter}>
             + Nouvel article
           </button>
@@ -272,6 +306,53 @@ export default function Articles() {
                 style={styles.boutonValider}
               >
                 {impressionEnCours ? 'Impression…' : 'Imprimer'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {panneauModifOuvert && (
+        <div style={styles.overlay} onClick={() => setPanneauModifOuvert(false)}>
+          <div style={styles.panneauEtiquettes} onClick={(e) => e.stopPropagation()}>
+            <h2 style={styles.titreFormulaire}>Modifier un article</h2>
+            <p style={{ fontSize: 13, color: 'var(--brown-soft)', marginTop: -8 }}>
+              Recherche par nom ou référence.
+            </p>
+
+            <input
+              autoFocus
+              style={styles.champQuantite2}
+              placeholder="Désignation ou référence…"
+              value={rechercheModif}
+              onChange={(e) => rechercherPourModif(e.target.value)}
+            />
+
+            {rechercheModifEnCours && <p style={{ color: 'var(--brown-soft)' }}>Recherche…</p>}
+
+            {!rechercheModifEnCours && resultatsModif.length > 0 && (
+              <div style={styles.listeEtiquettes}>
+                {resultatsModif.map((a) => (
+                  <div
+                    key={a.id}
+                    style={{ ...styles.ligneEtiquette, cursor: 'pointer' }}
+                    onClick={() => choisirArticlePourModif(a)}
+                  >
+                    <div>
+                      <div style={{ fontWeight: 600, fontSize: 13 }}>{a.designation}</div>
+                      <div style={{ fontSize: 12, color: 'var(--brown-soft)' }}>{a.reference}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+            {!rechercheModifEnCours && rechercheModif.trim().length >= 2 && resultatsModif.length === 0 && (
+              <p style={{ color: 'var(--brown-soft)', fontSize: 13 }}>Aucun article trouvé.</p>
+            )}
+
+            <div style={styles.boutonsFormulaire}>
+              <button type="button" onClick={() => setPanneauModifOuvert(false)} style={styles.boutonAnnuler}>
+                Fermer
               </button>
             </div>
           </div>

@@ -119,8 +119,11 @@ export default function Dashboard() {
                     />
                   </div>
                   <div style={{ display: 'flex', gap: 20, marginTop: 10, fontSize: 13, opacity: 0.8, flexWrap: 'wrap' }}>
-                    <span>Coût d'achat : {b.coutMarchandiseMois.toLocaleString('fr-FR')} F</span>
-                    <span>Dépenses : {b.depensesMois.toLocaleString('fr-FR')} F</span>
+                    <span style={{ fontWeight: 700 }}>
+                      Ventes du jour : {b.ventesJour.total.toLocaleString('fr-FR')} F ({b.ventesJour.nombre} vente(s))
+                    </span>
+                    <span>Coût d'achat (mois) : {b.coutMarchandiseMois.toLocaleString('fr-FR')} F</span>
+                    <span>Dépenses (mois) : {b.depensesMois.toLocaleString('fr-FR')} F</span>
                     <span style={{ fontWeight: 700, color: b.margeMois >= 0 ? '#1E6B36' : 'var(--error)' }}>
                       Marge nette du mois : {b.margeMois.toLocaleString('fr-FR')} F
                     </span>

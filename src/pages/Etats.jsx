@@ -88,7 +88,7 @@ export default function Etats() {
 
   const [ongletActif, setOngletActif] = useState('date');
   const [lieux, setLieux] = useState([]);
-  const [lieuId, setLieuId] = useState('');
+  const [lieuId, setLieuId] = useState(!estAdmin && utilisateur?.lieuId ? String(utilisateur.lieuId) : '');
 
   const [dateDebut, setDateDebut] = useState(formatDate(new Date()));
   const [dateFin, setDateFin] = useState(formatDate(new Date()));
@@ -405,7 +405,7 @@ export default function Etats() {
         <div style={styles.blocFiltres}>
           <label style={styles.champLabel}>
             Boutique
-            <select style={styles.champInput} value={lieuId} onChange={(e) => setLieuId(e.target.value)}>
+            <select style={styles.champInput} value={lieuId} onChange={(e) => setLieuId(e.target.value)} disabled={!estAdmin}>
               <option value="">Toutes les boutiques</option>
               {lieux.map((l) => (
                 <option key={l.id} value={l.id}>{l.nom}</option>

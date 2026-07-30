@@ -65,7 +65,7 @@ export default function Stock() {
       {ongletActif === 'transferts' && <OngletTransferts lieux={lieux} articles={articles} />}
       {ongletActif === 'inventaire' && <OngletInventaire lieux={lieux} familles={familles} />}
       {ongletActif === 'historique' && <OngletHistorique articles={articles} lieux={lieux} />}
-      {ongletActif === 'etat' && <OngletEtatStock lieux={lieux} />}
+      {ongletActif === 'etat' && <OngletEtatStock lieux={lieux} familles={familles} />}
       {ongletActif === 'etat-global' && <OngletEtatGlobal lieux={lieux} articles={articles} />}
     </div>
   );
@@ -1086,11 +1086,13 @@ function OngletHistorique({ articles, lieux }) {
 // ------------------------------------------------------------
 // ONGLET ÉTAT DU STOCK
 // ------------------------------------------------------------
-function OngletEtatStock({ lieux }) {
+function OngletEtatStock({ lieux, familles }) {
   const [lieuId, setLieuId] = useState('');
   const [stocks, setStocks] = useState([]);
   const [chargement, setChargement] = useState(false);
   const [recherche, setRecherche] = useState('');
+  const [familleId, setFamilleId] = useState('');
+  const [sousFamilleId, setSousFamilleId] = useState('');
 
   useEffect(() => {
     if (!lieuId) {
@@ -1104,13 +1106,21 @@ function OngletEtatStock({ lieux }) {
       .finally(() => setChargement(false));
   }, [lieuId]);
 
+  const familleSelectionnee = familles.find((f) => String(f.id) === familleId);
+  const sousFamillesDisponibles = familleSelectionnee?.sousFamilles || [];
+
   const termeRecherche = recherche.trim().toLowerCase();
-  const stocksFiltres = termeRecherche
-    ? stocks.filter((s) =>
+  const stocksFiltres = stocks.filter((s) => {
+    if (termeRecherche) {
+      const correspond =
         s.article.designation.toLowerCase().includes(termeRecherche) ||
-        s.article.reference.toLowerCase().includes(termeRecherche)
-      )
-    : stocks;
+        s.article.reference.toLowerCase().includes(termeRecherche);
+      if (!correspond) return false;
+    }
+    if (familleId && String(s.article.familleId) !== familleId) return false;
+    if (sousFamilleId && String(s.article.sousFamilleId) !== sousFamilleId) return false;
+    return true;
+  });
 
   return (
     <div style={styles.carte}>
@@ -1125,16 +1135,48 @@ function OngletEtatStock({ lieux }) {
       </label>
 
       {lieuId && (
-        <label style={styles.champLabel}>
-          Rechercher un article
-          <input
-            style={styles.champInput}
-            type="text"
-            placeholder="Désignation ou référence…"
-            value={recherche}
-            onChange={(e) => setRecherche(e.target.value)}
-          />
-        </label>
+        <>
+          <div style={styles.ligneChamps}>
+            <label style={styles.champLabel}>
+              Famille
+              <select
+                style={styles.champInput}
+                value={familleId}
+                onChange={(e) => { setFamilleId(e.target.value); setSousFamilleId(''); }}
+              >
+                <option value="">Toutes les familles</option>
+                {familles.map((f) => (
+                  <option key={f.id} value={f.id}>{f.nom}</option>
+                ))}
+              </select>
+            </label>
+            <label style={styles.champLabel}>
+              Sous-famille
+              <select
+                style={styles.champInput}
+                value={sousFamilleId}
+                onChange={(e) => setSousFamilleId(e.target.value)}
+                disabled={!familleId}
+              >
+                <option value="">Toutes les sous-familles</option>
+                {sousFamillesDisponibles.map((sf) => (
+                  <option key={sf.id} value={sf.id}>{sf.nom}</option>
+                ))}
+              </select>
+            </label>
+          </div>
+
+          <label style={styles.champLabel}>
+            Rechercher un article
+            <input
+              style={styles.champInput}
+              type="text"
+              placeholder="Désignation ou référence…"
+              value={recherche}
+              onChange={(e) => setRecherche(e.target.value)}
+            />
+          </label>
+        </>
       )}
 
       {chargement && <p style={styles.texteMuet}>Chargement…</p>}
@@ -1142,7 +1184,12 @@ function OngletEtatStock({ lieux }) {
         <p style={styles.texteMuet}>Aucun stock enregistré pour ce lieu.</p>
       )}
       {!chargement && stocks.length > 0 && stocksFiltres.length === 0 && (
-        <p style={styles.texteMuet}>Aucun article ne correspond à "{recherche}".</p>
+        <p style={styles.texteMuet}>Aucun article ne correspond à ce filtre.</p>
+      )}
+      {!chargement && stocksFiltres.length > 0 && (familleId || sousFamilleId || termeRecherche) && (
+        <p style={{ fontSize: 13, fontWeight: 700, marginTop: 4 }}>
+          {stocksFiltres.length} référence(s) — total : {stocksFiltres.reduce((s, x) => s + x.quantite, 0)} unité(s)
+        </p>
       )}
 
       {!chargement && stocksFiltres.length > 0 && (

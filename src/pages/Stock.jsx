@@ -1122,6 +1122,52 @@ function OngletEtatStock({ lieux, familles }) {
     return true;
   });
 
+  function imprimerEtatStock() {
+    const lieuNom = lieux.find((l) => String(l.id) === lieuId)?.nom || '';
+    const sousTitreParties = [lieuNom];
+    if (familleSelectionnee) sousTitreParties.push(familleSelectionnee.nom);
+    const sousFamilleSelectionnee = sousFamillesDisponibles.find((sf) => String(sf.id) === sousFamilleId);
+    if (sousFamilleSelectionnee) sousTitreParties.push(sousFamilleSelectionnee.nom);
+
+    const lignesHtml = stocksFiltres.map((s) => `
+      <tr>
+        <td>${s.article.designation}</td>
+        <td>${s.article.reference}</td>
+        <td style="text-align:center">${s.quantite}</td>
+      </tr>
+    `).join('');
+    const total = stocksFiltres.reduce((sum, x) => sum + x.quantite, 0);
+
+    const html = `<!DOCTYPE html>
+<html lang="fr"><head><meta charset="UTF-8"><title>État du stock</title>
+<style>
+  body { font-family: Arial, sans-serif; padding: 20px; }
+  h1 { font-size: 18px; margin-bottom: 4px; }
+  .sousTitre { font-size: 13px; color: #555; margin-bottom: 16px; }
+  table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  th, td { border: 1px solid #999; padding: 6px 8px; text-align: left; }
+  th { background: #eee; }
+  tfoot td { font-weight: bold; border-top: 2px solid #000; }
+</style></head>
+<body>
+  <h1>État du stock — Archange Bébé</h1>
+  <div class="sousTitre">
+    ${sousTitreParties.join(' — ')} — Date : ${new Date().toLocaleDateString('fr-FR')} — ${stocksFiltres.length} référence(s)
+  </div>
+  <table>
+    <thead><tr><th>Article</th><th>Référence</th><th>Quantité</th></tr></thead>
+    <tbody>${lignesHtml}</tbody>
+    <tfoot><tr><td colspan="2">Total</td><td style="text-align:center">${total}</td></tr></tfoot>
+  </table>
+  <script>window.onload = () => window.print();</script>
+</body></html>`;
+
+    const fenetre = window.open('', '_blank');
+    if (!fenetre) return;
+    fenetre.document.write(html);
+    fenetre.document.close();
+  }
+
   return (
     <div style={styles.carte}>
       <label style={styles.champLabel}>
@@ -1193,6 +1239,14 @@ function OngletEtatStock({ lieux, familles }) {
       )}
 
       {!chargement && stocksFiltres.length > 0 && (
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 8 }}>
+          <button type="button" onClick={imprimerEtatStock} style={styles.boutonAjouter}>
+            🖨️ Imprimer cet état
+          </button>
+        </div>
+      )}
+
+      {!chargement && stocksFiltres.length > 0 && (
         <div style={styles.tableauScroll}>
           <table style={styles.tableau}>
             <thead>
@@ -1261,6 +1315,49 @@ function OngletEtatGlobal({ lieux, articles }) {
       )
     : articles;
 
+  function imprimerEtatGlobal() {
+    const lignesHtml = articlesFiltres.map((a) => {
+      const quantitesParLieu = lignesParArticle[a.id] || {};
+      const total = lieux.reduce((s, l) => s + (quantitesParLieu[l.id] || 0), 0);
+      const colonnesLieux = lieux.map((l) => `<td style="text-align:center">${quantitesParLieu[l.id] || 0}</td>`).join('');
+      return `
+        <tr>
+          <td>${a.designation}</td>
+          <td>${a.reference}</td>
+          ${colonnesLieux}
+          <td style="text-align:center;font-weight:bold">${total}</td>
+        </tr>
+      `;
+    }).join('');
+
+    const enTeteLieux = lieux.map((l) => `<th>${l.nom}</th>`).join('');
+
+    const html = `<!DOCTYPE html>
+<html lang="fr"><head><meta charset="UTF-8"><title>État du stock — tous dépôts</title>
+<style>
+  body { font-family: Arial, sans-serif; padding: 20px; }
+  h1 { font-size: 18px; margin-bottom: 4px; }
+  .sousTitre { font-size: 13px; color: #555; margin-bottom: 16px; }
+  table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  th, td { border: 1px solid #999; padding: 6px 8px; text-align: left; }
+  th { background: #eee; }
+</style></head>
+<body>
+  <h1>État du stock — tous dépôts — Archange Bébé</h1>
+  <div class="sousTitre">Date : ${new Date().toLocaleDateString('fr-FR')} — ${articlesFiltres.length} référence(s)</div>
+  <table>
+    <thead><tr><th>Article</th><th>Référence</th>${enTeteLieux}<th>Total</th></tr></thead>
+    <tbody>${lignesHtml}</tbody>
+  </table>
+  <script>window.onload = () => window.print();</script>
+</body></html>`;
+
+    const fenetre = window.open('', '_blank');
+    if (!fenetre) return;
+    fenetre.document.write(html);
+    fenetre.document.close();
+  }
+
   return (
     <div style={styles.carte}>
       <h3 style={styles.titreCarte}>État du stock — tous dépôts</h3>
@@ -1282,6 +1379,14 @@ function OngletEtatGlobal({ lieux, articles }) {
       )}
       {!chargement && articles.length > 0 && articlesFiltres.length === 0 && (
         <p style={styles.texteMuet}>Aucun article ne correspond à "{recherche}".</p>
+      )}
+
+      {!chargement && articlesFiltres.length > 0 && (
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 8 }}>
+          <button type="button" onClick={imprimerEtatGlobal} style={styles.boutonAjouter}>
+            🖨️ Imprimer cet état
+          </button>
+        </div>
       )}
 
       {!chargement && articlesFiltres.length > 0 && (

@@ -664,6 +664,7 @@ function OngletTransferts({ lieux, articles }) {
 // (un article, une famille entière, ou une sous-famille entière — par boutique)
 // ------------------------------------------------------------
 function OngletInventaire({ lieux, familles }) {
+  const navigate = useNavigate();
   const [lieuId, setLieuId] = useState('');
   const [portee, setPortee] = useState('article');
   const [familleId, setFamilleId] = useState('');
@@ -946,7 +947,16 @@ function OngletInventaire({ lieux, familles }) {
                   const ecart = (Number(l.quantiteComptee) || 0) - l.stockActuel;
                   return (
                     <tr key={l.articleId}>
-                      <td style={styles.td}>{l.designation}</td>
+                      <td style={styles.td}>
+                        <button
+                          type="button"
+                          onClick={() => navigate(`/articles?modifier=${l.articleId}`)}
+                          style={styles.lienArticleInventaire}
+                          title="Ouvrir la fiche de cet article"
+                        >
+                          {l.designation}
+                        </button>
+                      </td>
                       <td style={styles.td}>{l.reference}</td>
                       <td style={styles.td}>{l.stockActuel}</td>
                       <td style={styles.td}>
@@ -1437,6 +1447,7 @@ function OngletImportExcel({ lieux }) {
   );
 }
 const styles = {
+  lienArticleInventaire: { border: 'none', background: 'transparent', color: 'var(--gold-deep)', cursor: 'pointer', fontWeight: 600, textDecoration: 'underline', padding: 0, fontSize: 13, textAlign: 'left' },
   page: { padding: 32, fontFamily: 'var(--font-body)', color: 'var(--brown-ink)' },
   enTete: { display: 'flex', alignItems: 'center', gap: 20, marginBottom: 20, flexWrap: 'wrap' },
   boutonRetour: { padding: '8px 14px', borderRadius: 8, border: '1px solid var(--gold-mid)', background: 'transparent', cursor: 'pointer', color: 'var(--brown-ink)' },

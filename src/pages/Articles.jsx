@@ -795,6 +795,9 @@ function CarteArticle({ article, onPhotoMiseAJour, onCodeBarreGenere, onModifier
           </label>
         </div>
       )}
+      {photos.length > 1 && (
+        <p style={styles.legendeEtoile}>★ = photo principale · clic sur une autre pour la changer</p>
+      )}
 
       <div style={styles.corpsCarte}>
         <div style={styles.enTeteCorpsCarte}>
@@ -1062,6 +1065,9 @@ function FormulaireArticle({ familles, articleEnEdition, onFermer, onFamillesMis
                 />
               </label>
             </div>
+            {photos.length > 1 && (
+              <p style={styles.legendeEtoile}>★ = photo principale · clic sur une autre pour la changer</p>
+            )}
             {erreurPhoto && <p style={{ color: 'var(--error)', fontSize: 12, marginTop: 4 }}>{erreurPhoto}</p>}
           </div>
         )}
@@ -1251,7 +1257,12 @@ const styles = {
   galeriePhotos: { display: 'flex', flexWrap: 'wrap', gap: 6, padding: '8px 12px 0' },
   miniature: { position: 'relative', width: 40, height: 40, flexShrink: 0 },
   imageMiniature: { width: '100%', height: '100%', objectFit: 'cover', borderRadius: 6 },
-  etoilePrincipale: { position: 'absolute', bottom: -2, left: -2, fontSize: 12, color: 'var(--gold-deep)', textShadow: '0 0 2px rgba(255,255,255,0.9)' },
+  etoilePrincipale: {
+    position: 'absolute', top: -6, left: -6, width: 18, height: 18, borderRadius: '50%',
+    background: 'var(--gold-deep)', color: 'var(--white)', fontSize: 11, lineHeight: '18px',
+    textAlign: 'center', boxShadow: '0 0 0 2px var(--white)',
+  },
+  legendeEtoile: { fontSize: 11, color: 'var(--brown-soft)', margin: '6px 0 0' },
   boutonSupprimerMiniature: {
     position: 'absolute', top: -6, right: -6, width: 16, height: 16, borderRadius: '50%',
     border: 'none', background: 'var(--error)', color: 'var(--white)', fontSize: 11, lineHeight: '16px',

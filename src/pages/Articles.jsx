@@ -842,6 +842,7 @@ function FormulaireArticle({ familles, articleEnEdition, onFermer, onFamillesMis
   const [prixVente, setPrixVente] = useState(articleEnEdition?.prixVente ?? '');
   const [prixPromo, setPrixPromo] = useState(articleEnEdition?.prixPromo ?? '');
   const [seuilAlerte, setSeuilAlerte] = useState(articleEnEdition ? String(articleEnEdition.seuilAlerte) : '5');
+  const [description, setDescription] = useState(articleEnEdition?.description || '');
   const [erreur, setErreur] = useState('');
   const [envoiEnCours, setEnvoiEnCours] = useState(false);
 
@@ -984,6 +985,7 @@ function FormulaireArticle({ familles, articleEnEdition, onFermer, onFamillesMis
           prixVente: Number(prixVente),
           prixPromo: prixPromo !== '' ? Number(prixPromo) : null,
           seuilAlerte: Number(seuilAlerte),
+          description,
         });
         onModifie(article);
       } else {
@@ -996,6 +998,7 @@ function FormulaireArticle({ familles, articleEnEdition, onFermer, onFamillesMis
           prixAchat: prixAchat ? Number(prixAchat) : 0,
           prixVente: Number(prixVente),
           seuilAlerte: Number(seuilAlerte),
+          description,
         });
         onCree(article);
       }
@@ -1071,6 +1074,16 @@ function FormulaireArticle({ familles, articleEnEdition, onFermer, onFamillesMis
             {erreurPhoto && <p style={{ color: 'var(--error)', fontSize: 12, marginTop: 4 }}>{erreurPhoto}</p>}
           </div>
         )}
+
+        <label style={styles.champLabel}>
+          Description (affichée sur le site — laisser vide pour reprendre celle de la sous-famille)
+          <textarea
+            style={styles.champTextarea}
+            placeholder="Matières, entretien, âge conseillé, dimensions…"
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+          />
+        </label>
 
         {!estEdition && (
           <>
@@ -1297,6 +1310,7 @@ const styles = {
   titreFormulaire: { fontFamily: 'var(--font-display)', margin: 0, marginBottom: 8 },
   champLabel: { display: 'flex', flexDirection: 'column', gap: 6, fontSize: 13, fontWeight: 600 },
   champInput: { padding: '10px 12px', borderRadius: 8, border: '1px solid var(--cream-deep)', fontSize: 14 },
+  champTextarea: { padding: '10px 12px', borderRadius: 8, border: '1px solid var(--cream-deep)', fontSize: 14, fontFamily: 'inherit', minHeight: 70, resize: 'vertical' },
   ligneAvecBouton: { display: 'flex', gap: 6, alignItems: 'stretch' },
   boutonPlus: { padding: '0 14px', borderRadius: 8, border: 'none', background: 'var(--gold-mid)', color: 'var(--white)', cursor: 'pointer', fontWeight: 700, fontSize: 16 },
   blocNouvelleSousFamille: { background: 'var(--cream)', borderRadius: 8, padding: 10, marginTop: 4 },

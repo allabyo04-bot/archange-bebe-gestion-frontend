@@ -168,6 +168,7 @@ export default function Familles() {
                       <th style={styles.th}>Préfixe</th>
                       <th style={styles.th}>Dernier numéro utilisé</th>
                       <th style={styles.th}>Prochain code</th>
+                      <th style={styles.th}>Description (site — repli si l'article n'en a pas)</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -216,10 +217,18 @@ export default function Familles() {
                         <td style={{ ...styles.td, fontFamily: 'monospace', fontWeight: 700 }}>
                           {sf.codePrefixe}{String(sf.dernierNumero + 1).padStart(2, '0')}
                         </td>
+                        <td style={styles.td}>
+                          <textarea
+                            style={styles.champDescription}
+                            placeholder="Ex : matières, entretien, âge conseillé…"
+                            defaultValue={sf.description || ''}
+                            onBlur={(e) => e.target.value.trim() !== (sf.description || '') && modifierPrefixeOuNumero(f.id, sf, 'description', e.target.value.trim())}
+                          />
+                        </td>
                       </tr>
                     ))}
                     {f.sousFamilles.length === 0 && (
-                      <tr><td style={styles.td} colSpan={4}><span style={styles.texteMuet}>Aucune sous-famille pour l'instant.</span></td></tr>
+                      <tr><td style={styles.td} colSpan={5}><span style={styles.texteMuet}>Aucune sous-famille pour l'instant.</span></td></tr>
                     )}
                   </tbody>
                 </table>
@@ -269,6 +278,7 @@ const styles = {
   champInput: { padding: '10px 12px', borderRadius: 8, border: '1px solid var(--cream-deep)', fontSize: 14, flex: 1 },
   champPetit: { width: 80, padding: '6px 8px', borderRadius: 6, border: '1px solid var(--cream-deep)', fontSize: 13 },
   champPrefixeNouveau: { width: 140, padding: '10px 12px', borderRadius: 8, border: '1px solid var(--cream-deep)', fontSize: 14 },
+  champDescription: { width: 220, minHeight: 40, padding: '6px 8px', borderRadius: 6, border: '1px solid var(--cream-deep)', fontSize: 12, fontFamily: 'inherit', resize: 'vertical' },
   boutonAjouter: { padding: '10px 18px', borderRadius: 8, border: 'none', background: 'var(--gold-deep)', color: 'var(--white)', cursor: 'pointer', fontWeight: 600, whiteSpace: 'nowrap' },
   boutonEditer: { border: 'none', background: 'transparent', cursor: 'pointer', color: 'var(--brown-soft)', marginLeft: 6, fontSize: 13 },
   ligneFamille: { display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer' },

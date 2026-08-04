@@ -20,6 +20,8 @@ const LIBELLES_TYPE = {
   RETOUR_CLIENT: 'Retour client',
   TRANSFERT_SORTIE: 'Transfert (sortie)',
   TRANSFERT_ENTREE: 'Transfert (entrée)',
+  SORTIE_SITE: 'Sortie site (commande en ligne)',
+  ANNULATION_SORTIE_SITE: 'Annulation sortie site',
 };
 
 function genererReferenceTransfert() {

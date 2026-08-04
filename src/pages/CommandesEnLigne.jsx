@@ -20,11 +20,14 @@ export default function CommandesEnLigne() {
 
   const [statutFiltre, setStatutFiltre] = useState('');
   const [commandes, setCommandes] = useState([]);
+  const [lieux, setLieux] = useState([]);
   const [chargement, setChargement] = useState(true);
   const [erreur, setErreur] = useState('');
   const [commandeOuverte, setCommandeOuverte] = useState(null);
+  const [lieuSortieChoisi, setLieuSortieChoisi] = useState({});
 
   useEffect(() => { chargerCommandes(); }, [statutFiltre]);
+  useEffect(() => { appelApi('GET', '/stock/lieux').then(setLieux).catch(() => {}); }, []);
 
   function chargerCommandes() {
     setChargement(true);
@@ -36,9 +39,27 @@ export default function CommandesEnLigne() {
       .finally(() => setChargement(false));
   }
 
-  async function changerStatut(id, statut) {
+  // Une commande en livraison (pas de boutique de retrait) doit préciser d'où le
+  // stock sera sorti, avant sa toute première bascule vers un statut actif.
+  function demandeLieuSortie(commande) {
+    const statutsActifs = ['CONFIRMEE', 'PRETE', 'LIVREE'];
+    return commande.modeLivraison === 'LIVRAISON' && !commande.stockDecompte
+      && !statutsActifs.includes(commande.statut);
+  }
+
+  async function changerStatut(commande, statut) {
+    setErreur('');
     try {
-      await appelApi('PUT', `/boutique/admin/commandes/${id}`, { statut });
+      const corps = { statut };
+      if (demandeLieuSortie(commande) && ['CONFIRMEE', 'PRETE', 'LIVREE'].includes(statut)) {
+        const lieuId = lieuSortieChoisi[commande.id];
+        if (!lieuId) {
+          setErreur("Choisis d'abord la boutique/entrepôt de sortie pour cette commande en livraison.");
+          return;
+        }
+        corps.lieuSortieId = Number(lieuId);
+      }
+      await appelApi('PUT', `/boutique/admin/commandes/${commande.id}`, corps);
       chargerCommandes();
     } catch (err) {
       setErreur(err.message);
@@ -105,10 +126,30 @@ export default function CommandesEnLigne() {
                 )}
                 {c.notes && <p style={styles.texteMuet}>Notes : {c.notes}</p>}
 
+                <p style={styles.texteMuet}>
+                  {c.stockDecompte
+                    ? `✓ Stock sorti (${lieux.find((l) => l.id === c.lieuSortieId)?.nom || 'lieu inconnu'})`
+                    : '— Stock pas encore sorti (se fait à la première confirmation)'}
+                </p>
+
+                {estAdmin && demandeLieuSortie(c) && (
+                  <label style={{ display: 'flex', flexDirection: 'column', gap: 4, fontSize: 13, fontWeight: 700, marginTop: 8, maxWidth: 260 }}>
+                    Sortir le stock depuis
+                    <select
+                      value={lieuSortieChoisi[c.id] || ''}
+                      onChange={(e) => setLieuSortieChoisi((prec) => ({ ...prec, [c.id]: e.target.value }))}
+                      style={{ padding: '8px 10px', borderRadius: 8, border: '1px solid var(--cream-deep)', fontSize: 14 }}
+                    >
+                      <option value="">— Choisir —</option>
+                      {lieux.map((l) => <option key={l.id} value={l.id}>{l.nom}</option>)}
+                    </select>
+                  </label>
+                )}
+
                 {estAdmin && (
                   <div style={{ display: 'flex', gap: 8, marginTop: 8, flexWrap: 'wrap' }}>
                     {STATUTS.filter((s) => s.id && s.id !== c.statut).map((s) => (
-                      <button key={s.id} onClick={() => changerStatut(c.id, s.id)} style={styles.boutonRetour}>
+                      <button key={s.id} onClick={() => changerStatut(c, s.id)} style={styles.boutonRetour}>
                         Passer à "{s.label}"
                       </button>
                     ))}

@@ -7,6 +7,7 @@ const LIENS = [
   { id: 'clients', label: 'Clients', chemin: '/clients', adminSeulement: false },
   { id: 'articles', label: 'Articles', chemin: '/articles', adminSeulement: true },
   { id: 'stock', label: 'Stock', chemin: '/stock', adminSeulement: true },
+  { id: 'commandes-en-ligne', label: 'Commandes en ligne', chemin: '/commandes-en-ligne', adminSeulement: false },
   { id: 'etats', label: 'États', chemin: '/etats', adminSeulement: false },
   { id: 'cartes-cadeaux', label: 'Cartes cadeaux', chemin: '/cartes-cadeaux', adminSeulement: false },
   { id: 'depenses', label: 'Dépenses', chemin: '/depenses', adminSeulement: false },

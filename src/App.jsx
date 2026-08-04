@@ -14,6 +14,7 @@ import Roles from './pages/Roles.jsx';
 import Familles from './pages/Familles.jsx';
 import Depenses from './pages/Depenses.jsx';
 import Clients from './pages/Clients';
+import CommandesEnLigne from './pages/CommandesEnLigne.jsx';
 import Parametres from './pages/Parametres.jsx';
 
 function estConnecte() {
@@ -134,6 +135,14 @@ export default function App() {
     </RouteProtegee>
   }
 />
+      <Route
+        path="/commandes-en-ligne"
+        element={
+          <RouteProtegee>
+            <CommandesEnLigne />
+          </RouteProtegee>
+        }
+      />
     </Routes>
   );
 }

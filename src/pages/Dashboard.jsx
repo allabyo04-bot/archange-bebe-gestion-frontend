@@ -95,6 +95,37 @@ export default function Dashboard() {
           </div>
         )}
 
+        {dashboard && estAdmin && dashboard.ventesEnLigne && (
+          <div style={{ marginTop: 32, maxWidth: 800 }}>
+            <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 18, marginBottom: 12 }}>
+              Ventes en ligne (site e-commerce)
+            </h2>
+            <p style={{ fontSize: 12, color: 'var(--brown-soft)', marginTop: -8, marginBottom: 12 }}>
+              Comptées séparément du CA boutique — uniquement les commandes marquées "Livrée" (une commande en
+              attente peut encore être annulée).
+            </p>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12 }}>
+              <div style={{ background: 'var(--cream-deep)', padding: 20, borderRadius: 12 }}>
+                <div style={{ fontSize: 13, opacity: 0.7 }}>En ligne — aujourd'hui</div>
+                <div style={{ fontSize: 22, fontWeight: 700 }}>{dashboard.ventesEnLigne.jour.total.toLocaleString('fr-FR')} F</div>
+                <div style={{ fontSize: 12, opacity: 0.6 }}>{dashboard.ventesEnLigne.jour.nombre} commande(s) livrée(s)</div>
+              </div>
+              <div style={{ background: 'var(--cream-deep)', padding: 20, borderRadius: 12 }}>
+                <div style={{ fontSize: 13, opacity: 0.7 }}>En ligne — ce mois-ci</div>
+                <div style={{ fontSize: 22, fontWeight: 700 }}>{dashboard.ventesEnLigne.mois.total.toLocaleString('fr-FR')} F</div>
+                <div style={{ fontSize: 12, opacity: 0.6 }}>{dashboard.ventesEnLigne.mois.nombre} commande(s) livrée(s)</div>
+              </div>
+              <div style={{ background: '#E4F3E6', padding: 20, borderRadius: 12 }}>
+                <div style={{ fontSize: 13, opacity: 0.7 }}>Total combiné — aujourd'hui</div>
+                <div style={{ fontSize: 22, fontWeight: 700, color: '#1E6B36' }}>
+                  {(dashboard.ventes.total + dashboard.ventesEnLigne.jour.total).toLocaleString('fr-FR')} F
+                </div>
+                <div style={{ fontSize: 12, opacity: 0.6 }}>Boutique + site en ligne</div>
+              </div>
+            </div>
+          </div>
+        )}
+
         {dashboard && estAdmin && dashboard.parBoutique.length > 0 && (
           <div style={{ marginTop: 32, maxWidth: 800 }}>
             <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 18, marginBottom: 12 }}>

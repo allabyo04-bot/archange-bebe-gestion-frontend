@@ -13,15 +13,18 @@ export default function Clients() {
   const [erreur, setErreur] = useState('');
   const [clientOuvertId, setClientOuvertId] = useState(null);
   const [formulaireOuvert, setFormulaireOuvert] = useState(false);
+  const [filtreCompteSite, setFiltreCompteSite] = useState(false);
 
   useEffect(() => {
     chargerClients();
-  }, []);
+  }, [filtreCompteSite]);
 
   function chargerClients() {
     setChargement(true);
-    const params = recherche ? `?q=${encodeURIComponent(recherche)}` : '';
-    appelApi('GET', `/clients${params}`)
+    const params = new URLSearchParams();
+    if (recherche) params.set('q', recherche);
+    if (filtreCompteSite) params.set('compteSite', 'true');
+    appelApi('GET', `/clients?${params.toString()}`)
       .then(setClients)
       .catch((err) => setErreur(err.message))
       .finally(() => setChargement(false));
@@ -42,15 +45,24 @@ export default function Clients() {
 
       {erreur && <div style={styles.bandeauErreur}>{erreur}</div>}
 
-      <form onSubmit={gererRecherche} style={styles.formRecherche}>
-        <input
-          style={styles.champInput}
-          placeholder="Rechercher par nom ou téléphone…"
-          value={recherche}
-          onChange={(e) => setRecherche(e.target.value)}
-        />
-        <button type="submit" style={styles.boutonRecherche}>Chercher</button>
-      </form>
+      <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+        <form onSubmit={gererRecherche} style={styles.formRecherche}>
+          <input
+            style={styles.champInput}
+            placeholder="Rechercher par nom ou téléphone…"
+            value={recherche}
+            onChange={(e) => setRecherche(e.target.value)}
+          />
+          <button type="submit" style={styles.boutonRecherche}>Chercher</button>
+        </form>
+        <button
+          type="button"
+          onClick={() => setFiltreCompteSite((v) => !v)}
+          style={filtreCompteSite ? styles.filtreCompteSiteActif : styles.filtreCompteSite}
+        >
+          🌐 Comptes site uniquement
+        </button>
+      </div>
 
       {chargement && <p style={styles.texteMuet}>Chargement…</p>}
       {!chargement && clients.length === 0 && <p style={styles.texteMuet}>Aucun client trouvé.</p>}
@@ -60,6 +72,7 @@ export default function Clients() {
           <div key={c.id} style={styles.carteClient} onClick={() => setClientOuvertId(c.id)}>
             <div style={styles.nomClient}>{c.nomComplet}</div>
             <div style={styles.texteMuet}>{c.telephone || 'Téléphone non renseigné'}</div>
+            {c.compteSite && <div style={styles.badgeCompteSite}>🌐 Compte site</div>}
             {c.achatsConsecutifs > 0 && (
               <div style={styles.badgeFidelite}>
                 {c.achatsConsecutifs}/{SEUIL_FIDELITE_ACHATS} achats consécutifs
@@ -295,6 +308,12 @@ const styles = {
   carteClient: { background: 'var(--white)', borderRadius: 12, padding: 16, cursor: 'pointer', boxShadow: '0 2px 8px rgba(74,44,23,0.08)' },
   nomClient: { fontWeight: 700, fontSize: 15, marginBottom: 4 },
   badgeFidelite: { marginTop: 8, fontSize: 11, fontWeight: 600, color: 'var(--gold-deep)' },
+  badgeCompteSite: {
+    marginTop: 6, fontSize: 11, fontWeight: 700, color: 'var(--bordeaux-deep)',
+    background: '#FBE4E1', padding: '2px 8px', borderRadius: 20, display: 'inline-block',
+  },
+  filtreCompteSite: { padding: '10px 16px', borderRadius: 8, border: '1px solid var(--cream-deep)', background: 'var(--white)', cursor: 'pointer', fontWeight: 600, fontSize: 13 },
+  filtreCompteSiteActif: { padding: '10px 16px', borderRadius: 8, border: '1px solid var(--gold-deep)', background: 'var(--gold-deep)', color: 'var(--white)', cursor: 'pointer', fontWeight: 600, fontSize: 13 },
   overlay: { position: 'fixed', inset: 0, background: 'rgba(46,26,13,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20, zIndex: 100 },
   panneau: { background: 'var(--white)', borderRadius: 16, padding: 28, width: '100%', maxWidth: 520, maxHeight: '90vh', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 10 },
   enTetePanneau: { display: 'flex', justifyContent: 'space-between', alignItems: 'center' },

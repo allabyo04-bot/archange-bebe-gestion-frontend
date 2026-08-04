@@ -1093,6 +1093,7 @@ function OngletEtatStock({ lieux, familles }) {
   const [recherche, setRecherche] = useState('');
   const [familleId, setFamilleId] = useState('');
   const [sousFamilleId, setSousFamilleId] = useState('');
+  const [statutStock, setStatutStock] = useState('TOUS');
 
   useEffect(() => {
     if (!lieuId) {
@@ -1119,6 +1120,8 @@ function OngletEtatStock({ lieux, familles }) {
     }
     if (familleId && String(s.article.familleId) !== familleId) return false;
     if (sousFamilleId && String(s.article.sousFamilleId) !== sousFamilleId) return false;
+    if (statutStock === 'RUPTURE' && s.quantite > 0) return false;
+    if (statutStock === 'EN_STOCK' && s.quantite <= 0) return false;
     return true;
   });
 
@@ -1213,6 +1216,15 @@ function OngletEtatStock({ lieux, familles }) {
           </div>
 
           <label style={styles.champLabel}>
+            Statut
+            <select style={styles.champInput} value={statutStock} onChange={(e) => setStatutStock(e.target.value)}>
+              <option value="TOUS">Tous les articles</option>
+              <option value="EN_STOCK">En stock uniquement</option>
+              <option value="RUPTURE">Rupture (quantité 0) uniquement</option>
+            </select>
+          </label>
+
+          <label style={styles.champLabel}>
             Rechercher un article
             <input
               style={styles.champInput}
@@ -1287,6 +1299,7 @@ function OngletEtatGlobal({ lieux, articles }) {
   const [chargement, setChargement] = useState(true);
   const [lignesParArticle, setLignesParArticle] = useState({});
   const [recherche, setRecherche] = useState('');
+  const [statutStock, setStatutStock] = useState('TOUS');
 
   useEffect(() => {
     if (lieux.length === 0) return;
@@ -1308,12 +1321,16 @@ function OngletEtatGlobal({ lieux, articles }) {
   }, [lieux]);
 
   const termeRecherche = recherche.trim().toLowerCase();
-  const articlesFiltres = termeRecherche
-    ? articles.filter((a) =>
-        a.designation.toLowerCase().includes(termeRecherche) ||
-        a.reference.toLowerCase().includes(termeRecherche)
-      )
-    : articles;
+  const articlesFiltres = articles.filter((a) => {
+    if (termeRecherche) {
+      const correspond = a.designation.toLowerCase().includes(termeRecherche) || a.reference.toLowerCase().includes(termeRecherche);
+      if (!correspond) return false;
+    }
+    const total = lieux.reduce((s, l) => s + ((lignesParArticle[a.id] || {})[l.id] || 0), 0);
+    if (statutStock === 'RUPTURE' && total > 0) return false;
+    if (statutStock === 'EN_STOCK' && total <= 0) return false;
+    return true;
+  });
 
   function imprimerEtatGlobal() {
     const lignesHtml = articlesFiltres.map((a) => {
@@ -1371,6 +1388,15 @@ function OngletEtatGlobal({ lieux, articles }) {
           value={recherche}
           onChange={(e) => setRecherche(e.target.value)}
         />
+      </label>
+
+      <label style={styles.champLabel}>
+        Statut
+        <select style={styles.champInput} value={statutStock} onChange={(e) => setStatutStock(e.target.value)}>
+          <option value="TOUS">Tous les articles</option>
+          <option value="EN_STOCK">En stock uniquement</option>
+          <option value="RUPTURE">Rupture (quantité 0) uniquement</option>
+        </select>
       </label>
 
       {chargement && <p style={styles.texteMuet}>Chargement…</p>}

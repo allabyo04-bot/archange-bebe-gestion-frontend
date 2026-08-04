@@ -842,6 +842,60 @@ function FormulaireArticle({ familles, articleEnEdition, onFermer, onFamillesMis
   const [erreur, setErreur] = useState('');
   const [envoiEnCours, setEnvoiEnCours] = useState(false);
 
+  const [photos, setPhotos] = useState(articleEnEdition?.photos || []);
+  const [photoUrlPrincipale, setPhotoUrlPrincipale] = useState(articleEnEdition?.photoUrl || null);
+  const [envoiPhotoEnCours, setEnvoiPhotoEnCours] = useState(false);
+  const [actionPhotoEnCours, setActionPhotoEnCours] = useState(null);
+  const [erreurPhoto, setErreurPhoto] = useState('');
+
+  async function gererAjoutPhotoFormulaire(e) {
+    const fichier = e.target.files[0];
+    if (!fichier) return;
+    e.target.value = '';
+    setEnvoiPhotoEnCours(true);
+    setErreurPhoto('');
+    try {
+      const articleMisAJour = await uploaderPhotoArticle(articleEnEdition.id, fichier);
+      setPhotos(articleMisAJour.photos || []);
+      setPhotoUrlPrincipale(articleMisAJour.photoUrl);
+      onModifie(articleMisAJour);
+    } catch (err) {
+      setErreurPhoto(err.message);
+    } finally {
+      setEnvoiPhotoEnCours(false);
+    }
+  }
+
+  async function gererSuppressionPhotoFormulaire(photoId) {
+    setActionPhotoEnCours(photoId);
+    setErreurPhoto('');
+    try {
+      const articleMisAJour = await supprimerPhotoArticle(articleEnEdition.id, photoId);
+      setPhotos(articleMisAJour.photos || []);
+      setPhotoUrlPrincipale(articleMisAJour.photoUrl);
+      onModifie(articleMisAJour);
+    } catch (err) {
+      setErreurPhoto(err.message);
+    } finally {
+      setActionPhotoEnCours(null);
+    }
+  }
+
+  async function gererDefinirPrincipaleFormulaire(photoId) {
+    setActionPhotoEnCours(photoId);
+    setErreurPhoto('');
+    try {
+      const articleMisAJour = await definirPhotoPrincipaleArticle(articleEnEdition.id, photoId);
+      setPhotos(articleMisAJour.photos || []);
+      setPhotoUrlPrincipale(articleMisAJour.photoUrl);
+      onModifie(articleMisAJour);
+    } catch (err) {
+      setErreurPhoto(err.message);
+    } finally {
+      setActionPhotoEnCours(null);
+    }
+  }
+
   const [nouvelleFamilleOuverte, setNouvelleFamilleOuverte] = useState(false);
   const [nomNouvelleFamille, setNomNouvelleFamille] = useState('');
   const [nouvelleSousFamilleOuverte, setNouvelleSousFamilleOuverte] = useState(false);
@@ -965,6 +1019,51 @@ function FormulaireArticle({ familles, articleEnEdition, onFermer, onFamillesMis
           <p style={{ fontSize: 12, color: 'var(--brown-soft)' }}>
             Référence : {articleEnEdition.reference} (non modifiable)
           </p>
+        )}
+
+        {estEdition && (
+          <div style={{ margin: '4px 0 8px' }}>
+            <p style={{ fontSize: 12, color: 'var(--brown-soft)', fontWeight: 700, marginBottom: 6 }}>Photos</p>
+            <div style={styles.galeriePhotosFormulaire}>
+              {photos.map((photo) => (
+                <div key={photo.id} style={styles.miniatureFormulaire}>
+                  <img
+                    src={photo.url}
+                    alt=""
+                    onClick={() => !photo.estPrincipale && gererDefinirPrincipaleFormulaire(photo.id)}
+                    style={{
+                      ...styles.imageMiniatureFormulaire,
+                      outline: photo.estPrincipale ? '2px solid var(--gold-deep)' : 'none',
+                      cursor: photo.estPrincipale ? 'default' : 'pointer',
+                      opacity: actionPhotoEnCours === photo.id ? 0.5 : 1,
+                    }}
+                    title={photo.estPrincipale ? 'Photo principale' : 'Cliquer pour définir comme principale'}
+                  />
+                  {photo.estPrincipale && <span style={styles.etoilePrincipale}>★</span>}
+                  <button
+                    type="button"
+                    onClick={() => gererSuppressionPhotoFormulaire(photo.id)}
+                    disabled={actionPhotoEnCours === photo.id}
+                    style={styles.boutonSupprimerMiniature}
+                    title="Supprimer cette photo"
+                  >
+                    ×
+                  </button>
+                </div>
+              ))}
+              <label style={styles.miniatureAjouterFormulaire}>
+                {envoiPhotoEnCours ? '…' : '+ Ajouter'}
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={gererAjoutPhotoFormulaire}
+                  style={{ display: 'none' }}
+                  disabled={envoiPhotoEnCours}
+                />
+              </label>
+            </div>
+            {erreurPhoto && <p style={{ color: 'var(--error)', fontSize: 12, marginTop: 4 }}>{erreurPhoto}</p>}
+          </div>
         )}
 
         {!estEdition && (
@@ -1162,6 +1261,14 @@ const styles = {
     width: 40, height: 40, flexShrink: 0, borderRadius: 6, border: '1px dashed var(--brown-soft)',
     display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
     color: 'var(--brown-soft)', fontSize: 16, fontWeight: 700,
+  },
+  galeriePhotosFormulaire: { display: 'flex', flexWrap: 'wrap', gap: 8 },
+  miniatureFormulaire: { position: 'relative', width: 64, height: 64, flexShrink: 0 },
+  imageMiniatureFormulaire: { width: '100%', height: '100%', objectFit: 'cover', borderRadius: 8 },
+  miniatureAjouterFormulaire: {
+    width: 64, height: 64, flexShrink: 0, borderRadius: 8, border: '1px dashed var(--brown-soft)',
+    display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
+    color: 'var(--brown-soft)', fontSize: 11, fontWeight: 700, textAlign: 'center', padding: 4,
   },
   corpsCarte: { padding: 12 },
   enTeteCorpsCarte: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 6 },

@@ -765,6 +765,7 @@ function FormulaireArticle({ familles, articleEnEdition, onFermer, onFamillesMis
   const [sousFamilleId, setSousFamilleId] = useState(articleEnEdition?.sousFamilleId ? String(articleEnEdition.sousFamilleId) : '');
   const [prixAchat, setPrixAchat] = useState(articleEnEdition?.prixAchat ?? '');
   const [prixVente, setPrixVente] = useState(articleEnEdition?.prixVente ?? '');
+  const [prixPromo, setPrixPromo] = useState(articleEnEdition?.prixPromo ?? '');
   const [seuilAlerte, setSeuilAlerte] = useState(articleEnEdition ? String(articleEnEdition.seuilAlerte) : '5');
   const [erreur, setErreur] = useState('');
   const [envoiEnCours, setEnvoiEnCours] = useState(false);
@@ -852,6 +853,7 @@ function FormulaireArticle({ familles, articleEnEdition, onFermer, onFamillesMis
           sousFamilleId,
           prixAchat: prixAchat !== '' ? Number(prixAchat) : 0,
           prixVente: Number(prixVente),
+          prixPromo: prixPromo !== '' ? Number(prixPromo) : null,
           seuilAlerte: Number(seuilAlerte),
         });
         onModifie(article);
@@ -1027,6 +1029,22 @@ function FormulaireArticle({ familles, articleEnEdition, onFermer, onFamillesMis
           Prix de vente *
           <input type="number" style={styles.champInput} value={prixVente} onChange={(e) => setPrixVente(e.target.value)} />
         </label>
+
+        {estEdition && (
+          <label style={styles.champLabel}>
+            Prix promo (site e-commerce uniquement — laisser vide pour aucune promotion)
+            <input
+              type="number"
+              style={styles.champInput}
+              value={prixPromo}
+              onChange={(e) => setPrixPromo(e.target.value)}
+              placeholder={`Ex: ${Math.round(Number(prixVente) * 0.9) || ''}`}
+            />
+            <span style={{ fontSize: 12, color: 'var(--brown-soft)', fontWeight: 400 }}>
+              N'a aucun effet en caisse — seul le prix de vente reste utilisé pour les ventes en boutique.
+            </span>
+          </label>
+        )}
 
         <label style={styles.champLabel}>
           Seuil d'alerte stock

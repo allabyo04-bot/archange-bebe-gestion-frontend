@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { appelApi, uploaderPhotoArticle, envoyerEtRecupererHtmlAvecAuth } from '../lib/api';
+import { appelApi, uploaderPhotoArticle, supprimerPhotoArticle, definirPhotoPrincipaleArticle, envoyerEtRecupererHtmlAvecAuth } from '../lib/api';
 
 export default function Articles() {
   const navigate = useNavigate();
@@ -675,12 +675,16 @@ export default function Articles() {
 function CarteArticle({ article, onPhotoMiseAJour, onCodeBarreGenere, onModifier }) {
   const [envoiEnCours, setEnvoiEnCours] = useState(false);
   const [erreurPhoto, setErreurPhoto] = useState('');
+  const [actionPhotoEnCours, setActionPhotoEnCours] = useState(null); // id de la photo en cours de suppression/promotion
   const [generationEnCours, setGenerationEnCours] = useState(false);
   const [erreurGeneration, setErreurGeneration] = useState('');
 
-  async function gererChangementPhoto(e) {
+  const photos = article.photos || [];
+
+  async function gererAjoutPhoto(e) {
     const fichier = e.target.files[0];
     if (!fichier) return;
+    e.target.value = ''; // permet de resélectionner le même fichier ensuite si besoin
     setEnvoiEnCours(true);
     setErreurPhoto('');
     try {
@@ -690,6 +694,32 @@ function CarteArticle({ article, onPhotoMiseAJour, onCodeBarreGenere, onModifier
       setErreurPhoto(err.message);
     } finally {
       setEnvoiEnCours(false);
+    }
+  }
+
+  async function gererSuppressionPhoto(photoId) {
+    setActionPhotoEnCours(photoId);
+    setErreurPhoto('');
+    try {
+      const articleMisAJour = await supprimerPhotoArticle(article.id, photoId);
+      onPhotoMiseAJour(articleMisAJour);
+    } catch (err) {
+      setErreurPhoto(err.message);
+    } finally {
+      setActionPhotoEnCours(null);
+    }
+  }
+
+  async function gererDefinirPrincipale(photoId) {
+    setActionPhotoEnCours(photoId);
+    setErreurPhoto('');
+    try {
+      const articleMisAJour = await definirPhotoPrincipaleArticle(article.id, photoId);
+      onPhotoMiseAJour(articleMisAJour);
+    } catch (err) {
+      setErreurPhoto(err.message);
+    } finally {
+      setActionPhotoEnCours(null);
     }
   }
 
@@ -719,11 +749,53 @@ function CarteArticle({ article, onPhotoMiseAJour, onCodeBarreGenere, onModifier
         <input
           type="file"
           accept="image/*"
-          onChange={gererChangementPhoto}
+          onChange={gererAjoutPhoto}
           style={{ display: 'none' }}
           disabled={envoiEnCours}
         />
       </label>
+
+      {(photos.length > 0 || envoiEnCours) && (
+        <div style={styles.galeriePhotos}>
+          {photos.map((photo) => (
+            <div key={photo.id} style={styles.miniature}>
+              <img
+                src={photo.url}
+                alt=""
+                onClick={() => !photo.estPrincipale && gererDefinirPrincipale(photo.id)}
+                style={{
+                  ...styles.imageMiniature,
+                  outline: photo.estPrincipale ? '2px solid var(--gold-deep)' : 'none',
+                  cursor: photo.estPrincipale ? 'default' : 'pointer',
+                  opacity: actionPhotoEnCours === photo.id ? 0.5 : 1,
+                }}
+                title={photo.estPrincipale ? 'Photo principale' : 'Cliquer pour définir comme principale'}
+              />
+              {photo.estPrincipale && <span style={styles.etoilePrincipale}>★</span>}
+              <button
+                type="button"
+                onClick={() => gererSuppressionPhoto(photo.id)}
+                disabled={actionPhotoEnCours === photo.id}
+                style={styles.boutonSupprimerMiniature}
+                title="Supprimer cette photo"
+              >
+                ×
+              </button>
+            </div>
+          ))}
+          <label style={styles.miniatureAjouter}>
+            {envoiEnCours ? '…' : '+'}
+            <input
+              type="file"
+              accept="image/*"
+              onChange={gererAjoutPhoto}
+              style={{ display: 'none' }}
+              disabled={envoiEnCours}
+            />
+          </label>
+        </div>
+      )}
+
       <div style={styles.corpsCarte}>
         <div style={styles.enTeteCorpsCarte}>
           <div style={styles.designation}>{article.designation}</div>
@@ -1077,6 +1149,20 @@ const styles = {
   zonePhoto: { display: 'block', cursor: 'pointer', aspectRatio: '1 / 1', background: 'var(--cream-deep)' },
   image: { width: '100%', height: '100%', objectFit: 'cover' },
   placeholderPhoto: { width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--brown-soft)', fontSize: 13, textAlign: 'center', padding: 12 },
+  galeriePhotos: { display: 'flex', flexWrap: 'wrap', gap: 6, padding: '8px 12px 0' },
+  miniature: { position: 'relative', width: 40, height: 40, flexShrink: 0 },
+  imageMiniature: { width: '100%', height: '100%', objectFit: 'cover', borderRadius: 6 },
+  etoilePrincipale: { position: 'absolute', bottom: -2, left: -2, fontSize: 12, color: 'var(--gold-deep)', textShadow: '0 0 2px rgba(255,255,255,0.9)' },
+  boutonSupprimerMiniature: {
+    position: 'absolute', top: -6, right: -6, width: 16, height: 16, borderRadius: '50%',
+    border: 'none', background: 'var(--error)', color: 'var(--white)', fontSize: 11, lineHeight: '16px',
+    padding: 0, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+  },
+  miniatureAjouter: {
+    width: 40, height: 40, flexShrink: 0, borderRadius: 6, border: '1px dashed var(--brown-soft)',
+    display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
+    color: 'var(--brown-soft)', fontSize: 16, fontWeight: 700,
+  },
   corpsCarte: { padding: 12 },
   enTeteCorpsCarte: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 6 },
   boutonModifier: { border: 'none', background: 'transparent', cursor: 'pointer', fontSize: 14, padding: 0, lineHeight: 1 },

@@ -364,7 +364,6 @@ export default function Articles() {
           onFamillesMisesAJour={setFamilles}
           onCree={(article) => {
             ajouterArticleALaListe(article);
-            setFormulaireOuvert(false);
           }}
           onModifie={(article) => {
             mettreAJourArticle(article);
@@ -846,6 +845,47 @@ function FormulaireArticle({ familles, articleEnEdition, onFermer, onFamillesMis
   const [erreur, setErreur] = useState('');
   const [envoiEnCours, setEnvoiEnCours] = useState(false);
 
+  // Étape "mise en stock" affichée juste après la création d'un nouvel article — évite
+  // d'avoir à repasser par l'écran Réception pour un simple stock de départ.
+  const [articleCree, setArticleCree] = useState(null);
+  const [lieuxStock, setLieuxStock] = useState([]);
+  const [lieuStockId, setLieuStockId] = useState('');
+  const [quantiteStock, setQuantiteStock] = useState('');
+  const [envoiStockEnCours, setEnvoiStockEnCours] = useState(false);
+  const [erreurStock, setErreurStock] = useState('');
+  const [stockAjoute, setStockAjoute] = useState(false);
+
+  useEffect(() => {
+    if (!estEdition) {
+      appelApi('GET', '/stock/lieux').then((l) => {
+        setLieuxStock(l);
+        if (l.length === 1) setLieuStockId(String(l[0].id));
+      }).catch(() => {});
+    }
+  }, [estEdition]);
+
+  async function gererAjoutStockInitial(e) {
+    e.preventDefault();
+    setErreurStock('');
+    if (!lieuStockId) return setErreurStock('Choisis un dépôt/boutique.');
+    const quantite = Number(quantiteStock);
+    if (!quantite || quantite <= 0) return setErreurStock('Indique une quantité valide.');
+
+    setEnvoiStockEnCours(true);
+    try {
+      await appelApi('POST', '/stock/receptions', {
+        lieuId: Number(lieuStockId),
+        lignes: [{ articleId: articleCree.id, quantite, prixAchat: articleCree.prixAchat || 0 }],
+      });
+      setStockAjoute(true);
+      onModifie({ ...articleCree, stockActuel: (articleCree.stockActuel || 0) + quantite });
+    } catch (err) {
+      setErreurStock(err.message);
+    } finally {
+      setEnvoiStockEnCours(false);
+    }
+  }
+
   const [photos, setPhotos] = useState(articleEnEdition?.photos || []);
   const [photoUrlPrincipale, setPhotoUrlPrincipale] = useState(articleEnEdition?.photoUrl || null);
   const [envoiPhotoEnCours, setEnvoiPhotoEnCours] = useState(false);
@@ -1001,12 +1041,62 @@ function FormulaireArticle({ familles, articleEnEdition, onFermer, onFamillesMis
           description,
         });
         onCree(article);
+        setArticleCree(article);
       }
     } catch (err) {
       setErreur(err.message);
     } finally {
       setEnvoiEnCours(false);
     }
+  }
+
+  if (articleCree) {
+    return (
+      <div style={styles.overlay} onClick={onFermer}>
+        <div style={styles.formulaire} onClick={(e) => e.stopPropagation()}>
+          <h2 style={styles.titreFormulaire}>Article créé !</h2>
+          <p style={{ fontSize: 14, color: 'var(--brown-soft)', marginTop: -8 }}>
+            {articleCree.designation} — référence {articleCree.reference}
+          </p>
+
+          {!stockAjoute ? (
+            <>
+              <p style={{ fontSize: 14 }}>Veux-tu le mettre en stock dès maintenant ?</p>
+              {erreurStock && <p style={{ color: 'var(--error)' }}>{erreurStock}</p>}
+              <form onSubmit={gererAjoutStockInitial} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                <label style={styles.champLabel}>
+                  Dépôt / boutique *
+                  <select style={styles.champInput} value={lieuStockId} onChange={(e) => setLieuStockId(e.target.value)} required>
+                    <option value="">— Choisir —</option>
+                    {lieuxStock.map((l) => (
+                      <option key={l.id} value={l.id}>{l.nom}</option>
+                    ))}
+                  </select>
+                </label>
+                <label style={styles.champLabel}>
+                  Quantité *
+                  <input
+                    type="number" min="1" style={styles.champInput}
+                    value={quantiteStock} onChange={(e) => setQuantiteStock(e.target.value)} required
+                  />
+                </label>
+                <div style={{ display: 'flex', gap: 10 }}>
+                  <button type="button" onClick={onFermer} style={styles.boutonAnnuler}>Plus tard</button>
+                  <button type="submit" disabled={envoiStockEnCours} style={styles.boutonValider}>
+                    {envoiStockEnCours ? 'Ajout…' : 'Ajouter au stock'}
+                  </button>
+                </div>
+              </form>
+            </>
+          ) : (
+            <>
+              <p style={{ color: 'var(--succes)', fontWeight: 700 }}>✓ Stock ajouté avec succès.</p>
+              <button type="button" onClick={onFermer} style={styles.boutonValider}>Terminer</button>
+            </>
+          )}
+        </div>
+      </div>
+    );
   }
 
   return (

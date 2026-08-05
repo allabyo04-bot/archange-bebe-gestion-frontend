@@ -107,6 +107,11 @@ export default function CommandesEnLigne() {
               </div>
               <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
                 <strong>{Number(c.totalCommande).toLocaleString('fr-FR')} F</strong>
+                {c.modePaiement === 'JEKO' && (
+                  <span style={c.paiementRecu ? styles.badgePaye : styles.badgeEnAttentePaiement}>
+                    {c.paiementRecu ? '✓ Payé en ligne' : '⏳ Paiement en attente'}
+                  </span>
+                )}
                 <span style={styles.badgeStatut}>{LABEL_STATUT[c.statut] || c.statut}</span>
               </div>
             </div>
@@ -176,6 +181,8 @@ const styles = {
   bandeauErreur: { padding: '10px 14px', borderRadius: 8, background: '#FBE4E1', color: 'var(--error)', fontSize: 14, fontWeight: 600 },
   carte: { background: 'var(--white)', borderRadius: 12, padding: 16 },
   badgeStatut: { fontSize: 12, fontWeight: 700, padding: '4px 10px', borderRadius: 20, background: 'var(--cream-deep)' },
+  badgePaye: { fontSize: 12, fontWeight: 700, padding: '4px 10px', borderRadius: 20, background: '#DFF3E3', color: '#1E6B36' },
+  badgeEnAttentePaiement: { fontSize: 12, fontWeight: 700, padding: '4px 10px', borderRadius: 20, background: '#FFF3D6', color: '#8A6300' },
   listeLignes: { display: 'flex', flexDirection: 'column', gap: 6 },
   ligneItem: { display: 'flex', justifyContent: 'space-between', fontSize: 13, padding: '4px 0' },
 };

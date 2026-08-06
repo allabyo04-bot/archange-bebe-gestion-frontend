@@ -254,6 +254,12 @@ function OngletReception({ lieux, articles }) {
     setLignes((prec) => prec.filter((l) => l.articleId !== articleId));
   }
 
+  function modifierQuantiteLigne(articleId, quantite) {
+    const q = Number(quantite);
+    if (!q || q <= 0) return;
+    setLignes((prec) => prec.map((l) => (l.articleId === articleId ? { ...l, quantite: q } : l)));
+  }
+
   async function validerReception() {
     setErreur('');
     setSucces('');
@@ -421,8 +427,16 @@ function OngletReception({ lieux, articles }) {
             {lignes.map((l) => (
               <div key={l.articleId} style={styles.ligneItem}>
                 <span>{l.designation}</span>
-                <span style={{ fontWeight: 600 }}>
-                  × {l.quantite} — {l.prixAchat.toLocaleString('fr-FR')} F/u
+                <span style={{ fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6 }}>
+                  ×{' '}
+                  <input
+                    type="number"
+                    min="1"
+                    value={l.quantite}
+                    onChange={(e) => modifierQuantiteLigne(l.articleId, e.target.value)}
+                    style={styles.champQuantiteInline}
+                  />
+                  {' '}— {l.prixAchat.toLocaleString('fr-FR')} F/u
                   {l.datePeremption && ` — Périme le ${new Date(l.datePeremption).toLocaleDateString('fr-FR')}`}
                   {lieuId && (
                     <span style={{ fontWeight: 400, color: 'var(--brown-soft)' }}>
@@ -1646,6 +1660,7 @@ const styles = {
   boutonAjouter: { padding: '8px 14px', borderRadius: 8, border: 'none', background: 'var(--gold-mid)', color: 'var(--white)', cursor: 'pointer', fontWeight: 600, height: 38 },
   listeLignes: { display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 12 },
   ligneItem: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, padding: '6px 10px', borderRadius: 6, background: 'var(--cream)', fontSize: 13 },
+  champQuantiteInline: { width: 48, padding: '2px 4px', borderRadius: 4, border: '1px solid var(--cream-deep)', fontSize: 13, fontWeight: 600, textAlign: 'center' },
   itemResultatScan: { display: 'block', width: '100%', textAlign: 'left', padding: '8px 10px', borderRadius: 6, border: '1px solid var(--cream-deep)', background: 'transparent', cursor: 'pointer', fontSize: 13 },
   boutonRetirer: { border: 'none', background: 'transparent', color: 'var(--error)', cursor: 'pointer', fontSize: 14 },
   boutonValider: { padding: '10px 16px', borderRadius: 8, border: 'none', background: 'var(--gold-deep)', color: 'var(--white)', cursor: 'pointer', fontWeight: 600, width: '100%' },

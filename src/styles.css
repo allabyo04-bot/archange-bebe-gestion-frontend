@@ -65,6 +65,16 @@ input, select, textarea {
   max-width: 100%;
 }
 
+/* Saisie et recherche toujours affichées en majuscule à l'écran, quel que
+   soit l'état de la touche Maj/Verr. Maj du clavier. Type "password" (PIN)
+   exclu volontairement. La valeur réellement envoyée au serveur est mise
+   en majuscule côté api.js, donc l'affichage ici reste cohérent avec ce
+   qui est enregistré. */
+input:not([type="password"]):not([type="number"]):not([type="date"]),
+textarea {
+  text-transform: uppercase;
+}
+
 @media (max-width: 768px) {
   /* Tableau de bord : la barre latérale (largeur fixe 220px en desktop)
      devient une barre horizontale en haut, avec les liens qui défilent

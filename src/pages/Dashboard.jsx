@@ -70,10 +70,18 @@ export default function Dashboard() {
               <div style={{ fontSize: 24, fontWeight: 700 }}>{dashboard.ventes.total.toLocaleString('fr-FR')} F</div>
               <div style={{ fontSize: 12, opacity: 0.6 }}>{dashboard.ventes.nombre} vente(s)</div>
             </div>
-            <div style={{ background: 'var(--cream-deep)', padding: 20, borderRadius: 12 }}>
-              <div style={{ fontSize: 13, opacity: 0.7 }}>Alertes stock</div>
-              <div style={{ fontSize: 24, fontWeight: 700 }}>{dashboard.alertesStock.length}</div>
-            </div>
+            {!estAdmin && (
+              <div style={{ background: 'var(--cream-deep)', padding: 20, borderRadius: 12 }}>
+                <div style={{ fontSize: 13, opacity: 0.7 }}>Alertes stock</div>
+                <div style={{ fontSize: 24, fontWeight: 700 }}>{dashboard.alertesStock.length}</div>
+              </div>
+            )}
+            {estAdmin && (
+              <CarteRemisesVsVentes
+                ventesMois={dashboard.parBoutique.reduce((s, b) => s + b.ventesMois, 0)}
+                remisesMois={dashboard.remises.mois.total}
+              />
+            )}
             <div style={{ background: 'var(--cream-deep)', padding: 20, borderRadius: 12 }}>
               <div style={{ fontSize: 13, opacity: 0.7 }}>Demandes de remise</div>
               <div style={{ fontSize: 24, fontWeight: 700 }}>{dashboard.demandesRemiseEnAttente}</div>
@@ -169,6 +177,72 @@ export default function Dashboard() {
           </div>
         )}
       </main>
+    </div>
+  );
+}
+
+// Donut "Remises vs Ventes (mois en cours)" — remplace la carte Alertes stock
+// pour les admins. Montre la part des remises accordées dans le total facturé
+// (ventes nettes + remises = montant brut avant remise). Pur SVG, pas de
+// dépendance externe.
+function CarteRemisesVsVentes({ ventesMois, remisesMois }) {
+  const brut = ventesMois + remisesMois;
+  const pourcentageRemises = brut > 0 ? (remisesMois / brut) * 100 : 0;
+
+  const rayon = 34;
+  const circonference = 2 * Math.PI * rayon;
+  const longueurRemises = (pourcentageRemises / 100) * circonference;
+
+  return (
+    <div style={{
+      background: 'var(--cream-deep)', padding: 20, borderRadius: 12,
+      display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8,
+    }}>
+      <div style={{ fontSize: 13, opacity: 0.7, alignSelf: 'flex-start' }}>Remises vs Ventes (mois)</div>
+
+      <div style={{ position: 'relative', width: 100, height: 100 }}>
+        <svg width="100" height="100" viewBox="0 0 100 100" style={{ transform: 'rotate(-90deg)' }}>
+          <defs>
+            <linearGradient id="degradeVentes" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stopColor="var(--gold-mid, #6E93C4)" />
+              <stop offset="100%" stopColor="var(--gold-deep, #2E4E9E)" />
+            </linearGradient>
+            <linearGradient id="degradeRemises" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stopColor="var(--bordeaux-tendre, #A8455C)" />
+              <stop offset="100%" stopColor="var(--bordeaux-deep, #8E3159)" />
+            </linearGradient>
+          </defs>
+          <circle
+            cx="50" cy="50" r={rayon} fill="none"
+            stroke="url(#degradeVentes)" strokeWidth="13" strokeLinecap="round"
+          />
+          {pourcentageRemises > 0 && (
+            <circle
+              cx="50" cy="50" r={rayon} fill="none"
+              stroke="url(#degradeRemises)" strokeWidth="13" strokeLinecap="round"
+              strokeDasharray={`${longueurRemises} ${circonference - longueurRemises}`}
+            />
+          )}
+        </svg>
+        <div style={{
+          position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column',
+          alignItems: 'center', justifyContent: 'center',
+        }}>
+          <div style={{ fontSize: 20, fontWeight: 700 }}>{pourcentageRemises.toFixed(1)}%</div>
+          <div style={{ fontSize: 10, opacity: 0.6 }}>remisé</div>
+        </div>
+      </div>
+
+      <div style={{ display: 'flex', gap: 14, fontSize: 11, opacity: 0.85 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+          <span style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--gold-deep, #2E4E9E)', display: 'inline-block' }} />
+          Ventes : {ventesMois.toLocaleString('fr-FR')} F
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+          <span style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--bordeaux-deep, #8E3159)', display: 'inline-block' }} />
+          Remises : {remisesMois.toLocaleString('fr-FR')} F
+        </div>
+      </div>
     </div>
   );
 }

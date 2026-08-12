@@ -104,6 +104,7 @@ function OngletReception({ lieux, articles }) {
       const fenetre = window.open('', '_blank');
       fenetre.document.write(html);
       fenetre.document.close();
+      setDerniereReception(null);
     } catch (err) {
       setErreurEtiquettes(err.message);
     } finally {
@@ -506,9 +507,11 @@ function OngletReception({ lieux, articles }) {
           <input style={styles.champInput} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Optionnel…" />
         </label>
 
-        <button onClick={validerReception} disabled={envoiEnCours} style={styles.boutonValider}>
-          {envoiEnCours ? 'Enregistrement…' : 'Valider la réception'}
-        </button>
+        <div style={{ position: 'sticky', bottom: 0, background: 'var(--white)', paddingTop: 10, paddingBottom: 4, marginTop: 4 }}>
+          <button onClick={validerReception} disabled={envoiEnCours} style={styles.boutonValider}>
+            {envoiEnCours ? 'Enregistrement…' : 'Valider la réception'}
+          </button>
+        </div>
       </div>
 
       <div style={styles.carte}>

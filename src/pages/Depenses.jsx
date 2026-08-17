@@ -135,7 +135,7 @@ export default function Depenses() {
                     {depenses.map((d) => (
                       <tr key={d.id}>
                         <td style={styles.td}>{new Date(d.dateDepense).toLocaleDateString('fr-FR')}</td>
-                        <td style={styles.td}>{d.categorie.nom}</td>
+                        <td style={styles.td}>{d.categorie.nom}{d.sousCategorie ? ` — ${d.sousCategorie.nom}` : ''}</td>
                         <td style={styles.td}>{d.description || '—'}</td>
                         {estAdmin && <td style={styles.td}>{d.utilisateur?.nomComplet || '—'}</td>}
                         <td style={{ ...styles.td, fontWeight: 700 }}>{Number(d.montant).toLocaleString('fr-FR')} F</td>
@@ -186,6 +186,7 @@ export default function Depenses() {
 
 function FormulaireDepense({ categories, onFermer, onCree }) {
   const [categorieId, setCategorieId] = useState('');
+  const [sousCategorieId, setSousCategorieId] = useState('');
   const [montant, setMontant] = useState('');
   const [description, setDescription] = useState('');
   const [dateDepense, setDateDepense] = useState(formatDate(new Date()));
@@ -211,6 +212,7 @@ function FormulaireDepense({ categories, onFermer, onCree }) {
     try {
       await appelApi('POST', '/depenses', {
         categorieId: Number(categorieId),
+        sousCategorieId: sousCategorieId || undefined,
         montant: Number(montant),
         description: description || undefined,
         dateDepense,
@@ -233,13 +235,29 @@ function FormulaireDepense({ categories, onFermer, onCree }) {
 
         <label style={styles.champLabel}>
           Catégorie *
-          <select style={styles.champInput} value={categorieId} onChange={(e) => setCategorieId(e.target.value)}>
+          <select
+            style={styles.champInput}
+            value={categorieId}
+            onChange={(e) => { setCategorieId(e.target.value); setSousCategorieId(''); }}
+          >
             <option value="">—</option>
             {categories.map((c) => (
               <option key={c.id} value={c.id}>{c.nom}</option>
             ))}
           </select>
         </label>
+
+        {categorieId && categories.find((c) => String(c.id) === String(categorieId))?.sousCategories?.length > 0 && (
+          <label style={styles.champLabel}>
+            Sous-catégorie
+            <select style={styles.champInput} value={sousCategorieId} onChange={(e) => setSousCategorieId(e.target.value)}>
+              <option value="">— Aucune —</option>
+              {categories.find((c) => String(c.id) === String(categorieId)).sousCategories.map((sc) => (
+                <option key={sc.id} value={sc.id}>{sc.nom}</option>
+              ))}
+            </select>
+          </label>
+        )}
 
         <label style={styles.champLabel}>
           Montant (F) *

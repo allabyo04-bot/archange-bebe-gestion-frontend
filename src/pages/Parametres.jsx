@@ -426,6 +426,11 @@ function OngletCategories() {
   const [editionId, setEditionId] = useState(null);
   const [nomEdition, setNomEdition] = useState('');
 
+  const [categorieDepliee, setCategorieDepliee] = useState(null);
+  const [nouvelleSousCategorie, setNouvelleSousCategorie] = useState('');
+  const [sousCategorieEditionId, setSousCategorieEditionId] = useState(null);
+  const [nomSousCategorieEdition, setNomSousCategorieEdition] = useState('');
+
   useEffect(() => { chargerCategories(); }, []);
 
   function chargerCategories() {
@@ -478,6 +483,45 @@ function OngletCategories() {
     }
   }
 
+  async function creerSousCategorie(e, categorieId) {
+    e.preventDefault();
+    if (!nouvelleSousCategorie.trim()) return;
+    setErreur('');
+    try {
+      await appelApi('POST', `/depenses/categories/${categorieId}/sous-categories`, { nom: nouvelleSousCategorie.trim() });
+      setNouvelleSousCategorie('');
+      chargerCategories();
+    } catch (err) {
+      setErreur(err.message);
+    }
+  }
+
+  function ouvrirEditionSousCategorie(sousCategorie) {
+    setSousCategorieEditionId(sousCategorie.id);
+    setNomSousCategorieEdition(sousCategorie.nom);
+  }
+
+  async function enregistrerEditionSousCategorie(sousCategorie) {
+    setErreur('');
+    try {
+      await appelApi('PUT', `/depenses/sous-categories/${sousCategorie.id}`, { nom: nomSousCategorieEdition.trim() });
+      setSousCategorieEditionId(null);
+      chargerCategories();
+    } catch (err) {
+      setErreur(err.message);
+    }
+  }
+
+  async function supprimerSousCategorie(sousCategorie) {
+    setErreur('');
+    try {
+      await appelApi('DELETE', `/depenses/sous-categories/${sousCategorie.id}`);
+      chargerCategories();
+    } catch (err) {
+      setErreur(err.message);
+    }
+  }
+
   return (
     <div style={styles.carte}>
       {erreur && <div style={styles.bandeauErreur}>{erreur}</div>}
@@ -486,19 +530,65 @@ function OngletCategories() {
       {!chargement && (
         <div style={styles.listeSimple}>
           {categories.map((c) => (
-            <div key={c.id} style={styles.ligneItem}>
-              {editionId === c.id ? (
-                <>
-                  <input style={styles.champInput} value={nomEdition} onChange={(e) => setNomEdition(e.target.value)} />
-                  <button onClick={() => enregistrerEdition(c)} style={styles.boutonValiderPetit}>Enregistrer</button>
-                  <button onClick={() => setEditionId(null)} style={styles.boutonAnnulerPetit}>Annuler</button>
-                </>
-              ) : (
-                <>
-                  <span style={{ flex: 1 }}>{c.nom}</span>
-                  <button onClick={() => ouvrirEdition(c)} style={styles.boutonModifier}>✏️</button>
-                  <button onClick={() => supprimerCategorie(c)} style={styles.boutonRetirer}>Supprimer</button>
-                </>
+            <div key={c.id}>
+              <div style={styles.ligneItem}>
+                {editionId === c.id ? (
+                  <>
+                    <input style={styles.champInput} value={nomEdition} onChange={(e) => setNomEdition(e.target.value)} />
+                    <button onClick={() => enregistrerEdition(c)} style={styles.boutonValiderPetit}>Enregistrer</button>
+                    <button onClick={() => setEditionId(null)} style={styles.boutonAnnulerPetit}>Annuler</button>
+                  </>
+                ) : (
+                  <>
+                    <span
+                      style={{ flex: 1, cursor: 'pointer', fontWeight: categorieDepliee === c.id ? 700 : 400 }}
+                      onClick={() => setCategorieDepliee(categorieDepliee === c.id ? null : c.id)}
+                    >
+                      {categorieDepliee === c.id ? '▾' : '▸'} {c.nom}
+                      {c.sousCategories?.length > 0 && (
+                        <span style={{ ...styles.texteMuet, marginLeft: 8 }}>({c.sousCategories.length} sous-catégorie(s))</span>
+                      )}
+                    </span>
+                    <button onClick={() => ouvrirEdition(c)} style={styles.boutonModifier}>✏️</button>
+                    <button onClick={() => supprimerCategorie(c)} style={styles.boutonRetirer}>Supprimer</button>
+                  </>
+                )}
+              </div>
+
+              {categorieDepliee === c.id && (
+                <div style={{ marginLeft: 24, marginBottom: 12, borderLeft: '2px solid var(--cream-deep)', paddingLeft: 12 }}>
+                  {(c.sousCategories || []).map((sc) => (
+                    <div key={sc.id} style={styles.ligneItem}>
+                      {sousCategorieEditionId === sc.id ? (
+                        <>
+                          <input style={styles.champInput} value={nomSousCategorieEdition} onChange={(e) => setNomSousCategorieEdition(e.target.value)} />
+                          <button onClick={() => enregistrerEditionSousCategorie(sc)} style={styles.boutonValiderPetit}>Enregistrer</button>
+                          <button onClick={() => setSousCategorieEditionId(null)} style={styles.boutonAnnulerPetit}>Annuler</button>
+                        </>
+                      ) : (
+                        <>
+                          <span style={{ flex: 1, fontSize: 13 }}>{sc.nom}</span>
+                          <button onClick={() => ouvrirEditionSousCategorie(sc)} style={styles.boutonModifier}>✏️</button>
+                          <button onClick={() => supprimerSousCategorie(sc)} style={styles.boutonRetirer}>Supprimer</button>
+                        </>
+                      )}
+                    </div>
+                  ))}
+                  {(!c.sousCategories || c.sousCategories.length === 0) && (
+                    <p style={{ ...styles.texteMuet, fontSize: 13 }}>Aucune sous-catégorie pour l'instant.</p>
+                  )}
+                  <form onSubmit={(e) => creerSousCategorie(e, c.id)} style={styles.formAjout}>
+                    <input
+                      style={styles.champInput}
+                      placeholder="Nom de la nouvelle sous-catégorie…"
+                      value={nouvelleSousCategorie}
+                      onChange={(e) => setNouvelleSousCategorie(e.target.value)}
+                    />
+                    <button type="submit" disabled={!nouvelleSousCategorie.trim()} style={styles.boutonAjouter}>
+                      + Ajouter
+                    </button>
+                  </form>
+                </div>
               )}
             </div>
           ))}

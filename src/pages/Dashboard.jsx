@@ -65,7 +65,10 @@ export default function Dashboard() {
 
         {dashboard && (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 16, maxWidth: 800 }}>
-            <div style={{ background: 'var(--cream-deep)', padding: 20, borderRadius: 12 }}>
+            <div
+              style={{ background: 'var(--cream-deep)', padding: 20, borderRadius: 12, cursor: 'pointer' }}
+              onClick={() => navigate('/ventes?onglet=historique&periode=jour')}
+            >
               <div style={{ fontSize: 13, opacity: 0.7 }}>Ventes du jour</div>
               <div style={{ fontSize: 24, fontWeight: 700 }}>{dashboard.ventes.total.toLocaleString('fr-FR')} F</div>
               <div style={{ fontSize: 12, opacity: 0.6 }}>{dashboard.ventes.nombre} vente(s)</div>
@@ -93,7 +96,10 @@ export default function Dashboard() {
                   <div style={{ fontSize: 24, fontWeight: 700 }}>{dashboard.remises.jour.total.toLocaleString('fr-FR')} F</div>
                   <div style={{ fontSize: 12, opacity: 0.6 }}>{dashboard.remises.jour.nombre} vente(s) remisée(s)</div>
                 </div>
-                <div style={{ background: 'var(--cream-deep)', padding: 20, borderRadius: 12 }}>
+                <div
+                  style={{ background: 'var(--cream-deep)', padding: 20, borderRadius: 12, cursor: 'pointer' }}
+                  onClick={() => navigate('/ventes?onglet=historique&periode=mois&remise=1')}
+                >
                   <div style={{ fontSize: 13, opacity: 0.7 }}>Remises du mois en cours</div>
                   <div style={{ fontSize: 24, fontWeight: 700 }}>{dashboard.remises.mois.total.toLocaleString('fr-FR')} F</div>
                   <div style={{ fontSize: 12, opacity: 0.6 }}>{dashboard.remises.mois.nombre} vente(s) remisée(s)</div>

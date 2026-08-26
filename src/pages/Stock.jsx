@@ -1068,18 +1068,24 @@ function OngletInventaire({ lieux, familles }) {
 function OngletHistorique({ articles, lieux }) {
   const [articleFiltre, setArticleFiltre] = useState('');
   const [lieuFiltre, setLieuFiltre] = useState('');
+  const [typeFiltre, setTypeFiltre] = useState('');
+  const [dateDebut, setDateDebut] = useState('');
+  const [dateFin, setDateFin] = useState('');
   const [mouvements, setMouvements] = useState([]);
   const [chargement, setChargement] = useState(true);
 
   useEffect(() => {
     chargerMouvements();
-  }, [articleFiltre, lieuFiltre]);
+  }, [articleFiltre, lieuFiltre, typeFiltre, dateDebut, dateFin]);
 
   function chargerMouvements() {
     setChargement(true);
     const params = new URLSearchParams();
     if (articleFiltre) params.set('articleId', articleFiltre);
     if (lieuFiltre) params.set('lieuId', lieuFiltre);
+    if (typeFiltre) params.set('type', typeFiltre);
+    if (dateDebut) params.set('dateDebut', dateDebut);
+    if (dateFin) params.set('dateFin', dateFin);
     appelApi('GET', `/stock/mouvements?${params.toString()}`)
       .then(setMouvements)
       .catch(() => {})
@@ -1107,7 +1113,30 @@ function OngletHistorique({ articles, lieux }) {
             ))}
           </select>
         </label>
+        <label style={styles.champLabel}>
+          Type de mouvement
+          <select style={styles.champInput} value={typeFiltre} onChange={(e) => setTypeFiltre(e.target.value)}>
+            <option value="">Tous les types</option>
+            {Object.entries(LIBELLES_TYPE).map(([valeur, libelle]) => (
+              <option key={valeur} value={valeur}>{libelle}</option>
+            ))}
+          </select>
+        </label>
+        <label style={styles.champLabel}>
+          Du
+          <input type="date" style={styles.champInput} value={dateDebut} onChange={(e) => setDateDebut(e.target.value)} />
+        </label>
+        <label style={styles.champLabel}>
+          Au
+          <input type="date" style={styles.champInput} value={dateFin} onChange={(e) => setDateFin(e.target.value)} />
+        </label>
       </div>
+
+      {(dateDebut || dateFin || typeFiltre) && (
+        <p style={{ fontSize: 12, color: 'var(--brown-soft)', margin: '4px 0 10px' }}>
+          {mouvements.length} résultat(s){mouvements.length === 200 ? ' (limité aux 200 plus récents — affine les filtres si besoin)' : ''}
+        </p>
+      )}
 
       {chargement && <p style={styles.texteMuet}>Chargement…</p>}
       {!chargement && mouvements.length === 0 && (

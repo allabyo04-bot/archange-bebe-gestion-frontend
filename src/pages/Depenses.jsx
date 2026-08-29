@@ -23,6 +23,44 @@ export default function Depenses() {
 
   const [formulaireOuvert, setFormulaireOuvert] = useState(false);
 
+  const [editionId, setEditionId] = useState(null);
+  const [editionDate, setEditionDate] = useState('');
+  const [editionMontant, setEditionMontant] = useState('');
+  const [editionDescription, setEditionDescription] = useState('');
+
+  function ouvrirEdition(depense) {
+    setEditionId(depense.id);
+    setEditionDate(formatDate(new Date(depense.dateDepense)));
+    setEditionMontant(String(depense.montant));
+    setEditionDescription(depense.description || '');
+  }
+
+  async function enregistrerEdition(id) {
+    setErreur('');
+    try {
+      await appelApi('PUT', `/depenses/${id}`, {
+        montant: Number(editionMontant),
+        description: editionDescription || null,
+        dateDepense: editionDate,
+      });
+      setEditionId(null);
+      chargerDepenses();
+    } catch (err) {
+      setErreur(err.message);
+    }
+  }
+
+  async function supprimerDepense(id) {
+    if (!window.confirm('Supprimer définitivement cette dépense ?')) return;
+    setErreur('');
+    try {
+      await appelApi('DELETE', `/depenses/${id}`);
+      chargerDepenses();
+    } catch (err) {
+      setErreur(err.message);
+    }
+  }
+
   const [budget, setBudget] = useState(null);
   const [budgetChargement, setBudgetChargement] = useState(false);
 
@@ -129,16 +167,43 @@ export default function Depenses() {
                       <th style={styles.th}>Description</th>
                       {estAdmin && <th style={styles.th}>Par</th>}
                       <th style={styles.th}>Montant</th>
+                      <th style={styles.th}>Actions</th>
                     </tr>
                   </thead>
                   <tbody>
                     {depenses.map((d) => (
                       <tr key={d.id}>
-                        <td style={styles.td}>{new Date(d.dateDepense).toLocaleDateString('fr-FR')}</td>
-                        <td style={styles.td}>{d.categorie.nom}{d.sousCategorie ? ` — ${d.sousCategorie.nom}` : ''}</td>
-                        <td style={styles.td}>{d.description || '—'}</td>
-                        {estAdmin && <td style={styles.td}>{d.utilisateur?.nomComplet || '—'}</td>}
-                        <td style={{ ...styles.td, fontWeight: 700 }}>{Number(d.montant).toLocaleString('fr-FR')} F</td>
+                        {editionId === d.id ? (
+                          <>
+                            <td style={styles.td}>
+                              <input type="date" style={styles.champInput} value={editionDate} onChange={(e) => setEditionDate(e.target.value)} />
+                            </td>
+                            <td style={styles.td}>{d.categorie.nom}{d.sousCategorie ? ` — ${d.sousCategorie.nom}` : ''}</td>
+                            <td style={styles.td}>
+                              <input style={styles.champInput} value={editionDescription} onChange={(e) => setEditionDescription(e.target.value)} />
+                            </td>
+                            {estAdmin && <td style={styles.td}>{d.utilisateur?.nomComplet || '—'}</td>}
+                            <td style={styles.td}>
+                              <input type="number" style={{ ...styles.champInput, width: 90 }} value={editionMontant} onChange={(e) => setEditionMontant(e.target.value)} />
+                            </td>
+                            <td style={styles.td}>
+                              <button onClick={() => enregistrerEdition(d.id)} style={styles.boutonValiderPetit}>OK</button>
+                              <button onClick={() => setEditionId(null)} style={styles.boutonAnnulerPetit}>Annuler</button>
+                            </td>
+                          </>
+                        ) : (
+                          <>
+                            <td style={styles.td}>{new Date(d.dateDepense).toLocaleDateString('fr-FR')}</td>
+                            <td style={styles.td}>{d.categorie.nom}{d.sousCategorie ? ` — ${d.sousCategorie.nom}` : ''}</td>
+                            <td style={styles.td}>{d.description || '—'}</td>
+                            {estAdmin && <td style={styles.td}>{d.utilisateur?.nomComplet || '—'}</td>}
+                            <td style={{ ...styles.td, fontWeight: 700 }}>{Number(d.montant).toLocaleString('fr-FR')} F</td>
+                            <td style={styles.td}>
+                              <button onClick={() => ouvrirEdition(d)} style={styles.boutonModifier}>✏️</button>
+                              <button onClick={() => supprimerDepense(d.id)} style={styles.boutonRetirer}>Supprimer</button>
+                            </td>
+                          </>
+                        )}
                       </tr>
                     ))}
                   </tbody>
@@ -307,6 +372,10 @@ const styles = {
   blocFiltres: { display: 'flex', gap: 16, alignItems: 'flex-end', flexWrap: 'wrap', background: 'var(--white)', padding: 16, borderRadius: 12 },
   champLabel: { display: 'flex', flexDirection: 'column', gap: 4, fontSize: 13, fontWeight: 600 },
   champInput: { padding: '8px 10px', borderRadius: 8, border: '1px solid var(--cream-deep)', fontSize: 14, minWidth: 160 },
+  boutonModifier: { background: 'transparent', border: 'none', cursor: 'pointer', fontSize: 15, marginRight: 6 },
+  boutonRetirer: { background: 'transparent', border: '1px solid var(--error)', color: 'var(--error)', borderRadius: 6, padding: '3px 8px', fontSize: 12, cursor: 'pointer' },
+  boutonValiderPetit: { background: 'var(--gold-deep)', color: 'white', border: 'none', borderRadius: 6, padding: '4px 10px', fontSize: 12, cursor: 'pointer', marginRight: 6 },
+  boutonAnnulerPetit: { background: 'transparent', border: '1px solid var(--cream-deep)', borderRadius: 6, padding: '4px 10px', fontSize: 12, cursor: 'pointer' },
   texteMuet: { fontSize: 13, color: 'var(--brown-soft)' },
   bandeauErreur: { padding: '10px 14px', borderRadius: 8, background: '#FBE4E1', color: 'var(--error)', fontSize: 14, fontWeight: 600 },
   tableauWrapper: { overflowX: 'auto' },

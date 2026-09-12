@@ -8,6 +8,7 @@ export default function Utilisateurs() {
   const [lieux, setLieux] = useState([]);
   const [roles, setRoles] = useState([]);
   const [erreur, setErreur] = useState('');
+  const [utilisateurActiviteAffichee, setUtilisateurActiviteAffichee] = useState(null);
   const [chargement, setChargement] = useState(true);
   const [formulaireOuvert, setFormulaireOuvert] = useState(false);
   const [utilisateurEnEdition, setUtilisateurEnEdition] = useState(null);
@@ -76,10 +77,18 @@ export default function Utilisateurs() {
                 utilisateur={u}
                 onBasculerActif={() => basculerActif(u)}
                 onModifier={() => ouvrirEdition(u)}
+                onVoirActivite={() => setUtilisateurActiviteAffichee(u)}
               />
             ))}
           </div>
         </>
+      )}
+
+      {utilisateurActiviteAffichee && (
+        <PanneauRapportActivite
+          utilisateur={utilisateurActiviteAffichee}
+          onFermer={() => setUtilisateurActiviteAffichee(null)}
+        />
       )}
 
       {formulaireOuvert && (
@@ -107,7 +116,7 @@ function initiales(nomComplet) {
     .toUpperCase();
 }
 
-function CarteUtilisateur({ utilisateur, onBasculerActif, onModifier }) {
+function CarteUtilisateur({ utilisateur, onBasculerActif, onModifier, onVoirActivite }) {
   const estAdmin = utilisateur.roleDynamique ? utilisateur.roleDynamique.estAdmin : utilisateur.role === 'ADMIN';
   const nomRoleAffiche = utilisateur.roleDynamique
     ? utilisateur.roleDynamique.nom
@@ -135,6 +144,7 @@ function CarteUtilisateur({ utilisateur, onBasculerActif, onModifier }) {
         <button onClick={onBasculerActif} style={styles.lienAction}>
           {utilisateur.actif ? 'Désactiver' : 'Activer'}
         </button>
+        <button onClick={onVoirActivite} style={styles.lienAction}>📋 Activité</button>
         <button onClick={onModifier} style={styles.boutonModifier} title="Modifier">✏️</button>
       </div>
     </div>
@@ -264,6 +274,138 @@ function FormulaireUtilisateur({ lieux, roles, utilisateurEnEdition, onFermer, o
   );
 }
 
+function PanneauRapportActivite({ utilisateur, onFermer }) {
+  const [dateDebut, setDateDebut] = useState('');
+  const [dateFin, setDateFin] = useState('');
+  const [rapport, setRapport] = useState(null);
+  const [chargement, setChargement] = useState(true);
+  const [erreur, setErreur] = useState('');
+  const [sectionOuverte, setSectionOuverte] = useState(null);
+
+  useEffect(() => { chargerRapport(); }, [dateDebut, dateFin]);
+
+  function chargerRapport() {
+    setChargement(true);
+    const params = new URLSearchParams();
+    if (dateDebut) params.set('dateDebut', dateDebut);
+    if (dateFin) params.set('dateFin', dateFin);
+    appelApi('GET', `/utilisateurs/${utilisateur.id}/rapport-activite?${params.toString()}`)
+      .then(setRapport)
+      .catch((err) => setErreur(err.message))
+      .finally(() => setChargement(false));
+  }
+
+  return (
+    <div style={styles.superposition} onClick={onFermer}>
+      <div style={styles.panneauRapport} onClick={(e) => e.stopPropagation()}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+          <h2 style={styles.titre}>Activité de {utilisateur.nomComplet}</h2>
+          <button onClick={onFermer} style={styles.boutonModifier}>✕</button>
+        </div>
+
+        <div style={{ display: 'flex', gap: 10, marginBottom: 16 }}>
+          <label style={{ fontSize: 13 }}>
+            Du
+            <input type="date" style={{ ...styles.champInput, marginLeft: 6 }} value={dateDebut} onChange={(e) => setDateDebut(e.target.value)} />
+          </label>
+          <label style={{ fontSize: 13 }}>
+            Au
+            <input type="date" style={{ ...styles.champInput, marginLeft: 6 }} value={dateFin} onChange={(e) => setDateFin(e.target.value)} />
+          </label>
+        </div>
+
+        {erreur && <p style={{ color: 'var(--error)' }}>{erreur}</p>}
+        {chargement && <p>Chargement…</p>}
+
+        {!chargement && rapport && (
+          <>
+            <div style={styles.grilleResume}>
+              <CarteResume label="Articles créés" valeur={rapport.resume.nbArticlesCrees} section="articlesCrees" sectionOuverte={sectionOuverte} setSectionOuverte={setSectionOuverte} />
+              <CarteResume label="Prix modifiés" valeur={rapport.resume.nbPrixModifies} section="modificationsPrix" sectionOuverte={sectionOuverte} setSectionOuverte={setSectionOuverte} />
+              <CarteResume label="Réceptions" valeur={rapport.resume.nbReceptions} section="receptions" sectionOuverte={sectionOuverte} setSectionOuverte={setSectionOuverte} sousTexte={`${rapport.resume.quantiteTotaleReceptionnee} unité(s) reçue(s)`} />
+              <CarteResume label="Corrections d'inventaire" valeur={rapport.resume.nbCorrectionsInventaire} section="correctionsInventaire" sectionOuverte={sectionOuverte} setSectionOuverte={setSectionOuverte} />
+              <CarteResume label="Transferts" valeur={rapport.resume.nbTransferts} section="transferts" sectionOuverte={sectionOuverte} setSectionOuverte={setSectionOuverte} />
+            </div>
+
+            {sectionOuverte === 'articlesCrees' && (
+              <ListeDetail titre="Articles créés">
+                {rapport.detail.articlesCrees.map((a) => (
+                  <div key={a.id} style={styles.ligneDetail}>
+                    <span>{a.designation} ({a.reference})</span>
+                    <span>{Number(a.prixVente).toLocaleString('fr-FR')} F — {new Date(a.createdAt).toLocaleDateString('fr-FR')}</span>
+                  </div>
+                ))}
+              </ListeDetail>
+            )}
+            {sectionOuverte === 'modificationsPrix' && (
+              <ListeDetail titre="Prix modifiés">
+                {rapport.detail.modificationsPrix.map((m, i) => (
+                  <div key={i} style={styles.ligneDetail}>
+                    <span>{m.description}</span>
+                    <span>{new Date(m.createdAt).toLocaleDateString('fr-FR')}</span>
+                  </div>
+                ))}
+              </ListeDetail>
+            )}
+            {sectionOuverte === 'receptions' && (
+              <ListeDetail titre="Réceptions">
+                {rapport.detail.receptions.map((r) => (
+                  <div key={r.id} style={styles.ligneDetail}>
+                    <span>{r.lieu} — {r.fournisseur || 'Fournisseur non précisé'} ({r.nbLignes} ligne(s), {r.quantiteTotale} unité(s))</span>
+                    <span>{new Date(r.date).toLocaleDateString('fr-FR')}</span>
+                  </div>
+                ))}
+              </ListeDetail>
+            )}
+            {sectionOuverte === 'correctionsInventaire' && (
+              <ListeDetail titre="Corrections d'inventaire">
+                {rapport.detail.correctionsInventaire.map((c, i) => (
+                  <div key={i} style={styles.ligneDetail}>
+                    <span>{c.article} ({c.reference}) — {c.lieu} — écart {c.ecart > 0 ? '+' : ''}{c.ecart}</span>
+                    <span>{new Date(c.date).toLocaleDateString('fr-FR')}</span>
+                  </div>
+                ))}
+              </ListeDetail>
+            )}
+            {sectionOuverte === 'transferts' && (
+              <ListeDetail titre="Transferts">
+                {rapport.detail.transferts.map((t, i) => (
+                  <div key={i} style={styles.ligneDetail}>
+                    <span>{t.article} ({t.reference}) — {t.sens} — {t.lieu} — {t.quantite}</span>
+                    <span>{new Date(t.date).toLocaleDateString('fr-FR')}</span>
+                  </div>
+                ))}
+              </ListeDetail>
+            )}
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function CarteResume({ label, valeur, sousTexte, section, sectionOuverte, setSectionOuverte }) {
+  return (
+    <div
+      onClick={() => valeur > 0 && setSectionOuverte(sectionOuverte === section ? null : section)}
+      style={{ ...styles.carteResume, cursor: valeur > 0 ? 'pointer' : 'default', border: sectionOuverte === section ? '2px solid var(--gold-deep)' : '2px solid transparent' }}
+    >
+      <div style={{ fontSize: 12, color: 'var(--brown-soft)' }}>{label}</div>
+      <div style={{ fontSize: 24, fontWeight: 700 }}>{valeur}</div>
+      {sousTexte && <div style={{ fontSize: 11, color: 'var(--brown-soft)' }}>{sousTexte}</div>}
+    </div>
+  );
+}
+
+function ListeDetail({ titre, children }) {
+  return (
+    <div style={{ marginTop: 14 }}>
+      <h3 style={{ fontSize: 14, marginBottom: 8 }}>{titre}</h3>
+      <div style={{ maxHeight: 260, overflowY: 'auto' }}>{children}</div>
+    </div>
+  );
+}
+
 const styles = {
   page: { padding: 32, fontFamily: 'var(--font-body)', color: 'var(--brown-ink)' },
   enTete: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, flexWrap: 'wrap', gap: 12 },
@@ -283,6 +425,20 @@ const styles = {
   badgeLieu: { padding: '4px 10px', borderRadius: 20, background: 'var(--cream)', fontSize: 11, color: 'var(--brown-soft)' },
   piedCarte: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: 10, borderTop: '1px solid var(--cream-deep)' },
   lienAction: { border: 'none', background: 'transparent', color: 'var(--error)', cursor: 'pointer', fontSize: 12, fontWeight: 600 },
+  superposition: {
+    position: 'fixed', inset: 0, background: 'rgba(46, 26, 13, 0.5)', display: 'flex',
+    alignItems: 'center', justifyContent: 'center', zIndex: 100, padding: 20,
+  },
+  panneauRapport: {
+    background: 'var(--white)', borderRadius: 14, padding: 24, maxWidth: 560, width: '100%',
+    maxHeight: '85vh', overflowY: 'auto', boxShadow: '0 8px 30px rgba(0,0,0,0.25)',
+  },
+  grilleResume: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(110px, 1fr))', gap: 10 },
+  carteResume: { background: 'var(--cream)', borderRadius: 10, padding: '10px 12px' },
+  ligneDetail: {
+    display: 'flex', justifyContent: 'space-between', gap: 10, fontSize: 12.5,
+    padding: '6px 0', borderBottom: '1px solid var(--cream-deep)',
+  },
   boutonModifier: { border: 'none', background: 'transparent', cursor: 'pointer', fontSize: 14 },
   overlay: { position: 'fixed', inset: 0, background: 'rgba(46,26,13,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20, zIndex: 100 },
   formulaire: { background: 'var(--white)', borderRadius: 16, padding: 28, width: '100%', maxWidth: 420, maxHeight: '90vh', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 14 },

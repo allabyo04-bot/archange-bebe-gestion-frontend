@@ -96,6 +96,66 @@ function construireTicketHtml({ vente, panier, remise, totalNet, paiements, cont
 </html>`;
 }
 
+// Reçu imprimable après un versement sur une vente à crédit — reprend le même
+// habillage que le ticket de vente (logo, coordonnées), mais résume juste le
+// versement et le nouveau solde, plutôt que de reprendre toutes les lignes
+// d'articles de la vente d'origine.
+function construireRecuReglementHtml({ vente, reglement, totalPayeApres, montantRestantApres }) {
+  const date = new Date(reglement.createdAt || Date.now());
+  const dateTexte = date.toLocaleDateString('fr-FR');
+  const heureTexte = date.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+  const logoUrl = `${window.location.origin}/logo-archange-bebe.png`;
+
+  return `<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>Reçu de versement — ${vente.numero}</title>
+<style>
+  @page { size: 80mm auto; margin: 0; }
+  body { font-family: Arial, Helvetica, sans-serif; font-weight: 600; width: 76mm; margin: 4mm auto; font-size: 13px; color: #000; }
+  .centre { text-align: center; }
+  .logo { max-width: 55mm; max-height: 25mm; margin-bottom: 4px; }
+  h1 { font-size: 19px; font-weight: 800; margin: 0 0 2px 0; }
+  .sous-titre { font-size: 12px; font-weight: 700; margin-bottom: 8px; }
+  hr { border: none; border-top: 2px dashed #000; margin: 8px 0; }
+  .titre-recu { font-weight: 800; font-size: 15px; margin: 6px 0; text-transform: uppercase; }
+  .ligne-total { display: flex; justify-content: space-between; margin: 3px 0; font-weight: 700; }
+  .total-final { font-weight: 800; font-size: 16px; margin-top: 6px; border-top: 1px solid #000; padding-top: 4px; }
+  .pied { text-align: center; margin-top: 12px; font-size: 12px; font-weight: 700; }
+  .coordonnees { text-align: center; margin-top: 4px; font-size: 11px; font-weight: 600; line-height: 1.6; }
+</style>
+</head>
+<body>
+  <div class="centre">
+    <img src="${logoUrl}" class="logo" alt="Archange Bébé" onerror="this.style.display='none'">
+    <h1>ARCHANGE BÉBÉ</h1>
+    <div class="sous-titre">${vente.lieu?.nom || ''}</div>
+    <div>${dateTexte} — ${heureTexte}</div>
+    <div class="titre-recu">Reçu de versement</div>
+    <div>Vente d'origine : ${vente.numero}</div>
+    ${vente.client ? `<div>Client : ${vente.client.nomComplet}</div>` : ''}
+    ${vente.vendeur ? `<div>Vendeur : ${vente.vendeur.nomComplet}</div>` : ''}
+  </div>
+  <hr>
+  <div class="ligne-total"><span>Total de la vente</span><span>${Number(vente.totalNet).toLocaleString('fr-FR')} F</span></div>
+  <div class="ligne-total"><span>Versement (${reglement.mode})</span><span>${Number(reglement.montant).toLocaleString('fr-FR')} F</span></div>
+  <div class="ligne-total"><span>Total déjà payé</span><span>${totalPayeApres.toLocaleString('fr-FR')} F</span></div>
+  <div class="ligne-total total-final">
+    <span>${montantRestantApres > 1 ? 'RESTE DÛ' : 'SOLDÉ'}</span>
+    <span>${montantRestantApres > 1 ? montantRestantApres.toLocaleString('fr-FR') + ' F' : '0 F'}</span>
+  </div>
+  <hr>
+  <div class="pied">Merci de votre visite !</div>
+  <div class="coordonnees">
+    Angré Carrefour Adama Sanogho, après le 22ème<br>
+    0505380826 / 2722242008
+  </div>
+  <script>window.onload = () => window.print();</script>
+</body>
+</html>`;
+}
+
 function imprimerTicketDepuisHtml(html) {
   const fenetre = window.open('', '_blank', 'width=380,height=600');
   if (!fenetre) return;
@@ -312,9 +372,11 @@ export default function Ventes() {
     }
     setReglementEnCours(true);
     try {
-      await appelApi('POST', `/credits/${venteId}/reglements`, { montant, mode: modeReglement });
+      const resultat = await appelApi('POST', `/credits/${venteId}/reglements`, { montant, mode: modeReglement });
       fermerFormulaireReglement();
       await chargerCredits();
+      const html = construireRecuReglementHtml(resultat);
+      imprimerTicketDepuisHtml(html);
     } catch (err) {
       setCreditErreur(err.message);
     } finally {

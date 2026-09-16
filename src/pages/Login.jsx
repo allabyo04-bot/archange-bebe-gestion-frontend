@@ -17,7 +17,7 @@ export default function Login() {
     try {
       const data = await appelApi('POST', '/auth/login', { nomUtilisateur, pin });
       setSession(data.token, data.utilisateur);
-      navigate('/dashboard');
+      navigate(data.utilisateur.doitChangerPin ? '/changer-pin-obligatoire' : '/dashboard');
     } catch (err) {
       setErreur(err.message);
     } finally {

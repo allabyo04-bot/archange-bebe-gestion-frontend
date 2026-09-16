@@ -1,6 +1,6 @@
 const BASE_URL = import.meta.env.VITE_API_URL || 'https://jesma-u-gestion-backend-production.up.railway.app/api';
 
-function getToken() {
+export function getToken() {
   return localStorage.getItem('jesma_token');
 }
 

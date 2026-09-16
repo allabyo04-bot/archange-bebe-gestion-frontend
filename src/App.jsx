@@ -16,19 +16,29 @@ import Depenses from './pages/Depenses.jsx';
 import Clients from './pages/Clients';
 import CommandesEnLigne from './pages/CommandesEnLigne.jsx';
 import Parametres from './pages/Parametres.jsx';
+import ChangerPinObligatoire from './pages/ChangerPinObligatoire.jsx';
 
 function estConnecte() {
   return !!localStorage.getItem('jesma_token');
 }
 
+function doitChangerPin() {
+  const brut = localStorage.getItem('jesma_utilisateur');
+  if (!brut) return false;
+  try { return !!JSON.parse(brut).doitChangerPin; } catch { return false; }
+}
+
 function RouteProtegee({ children }) {
-  return estConnecte() ? children : <Navigate to="/" replace />;
+  if (!estConnecte()) return <Navigate to="/" replace />;
+  if (doitChangerPin()) return <Navigate to="/changer-pin-obligatoire" replace />;
+  return children;
 }
 
 export default function App() {
   return (
     <Routes>
       <Route path="/" element={estConnecte() ? <Navigate to="/dashboard" replace /> : <Login />} />
+      <Route path="/changer-pin-obligatoire" element={estConnecte() ? <ChangerPinObligatoire /> : <Navigate to="/" replace />} />
       <Route
         path="/dashboard"
         element={

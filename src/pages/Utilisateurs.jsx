@@ -178,7 +178,13 @@ function FormulaireUtilisateur({ lieux, roles, utilisateurEnEdition, onFermer, o
     setEnvoiEnCours(true);
     try {
       if (estEdition) {
+        if (!nomUtilisateur) {
+          setErreur("L'identifiant est requis.");
+          setEnvoiEnCours(false);
+          return;
+        }
         await appelApi('PUT', `/utilisateurs/${utilisateurEnEdition.id}`, {
+          nomUtilisateur,
           nomComplet,
           roleId: Number(roleId),
           lieuId: lieuId || null,
@@ -221,12 +227,11 @@ function FormulaireUtilisateur({ lieux, roles, utilisateurEnEdition, onFermer, o
         </label>
 
         <label style={styles.champLabel}>
-          Identifiant {!estEdition && '*'}
+          Identifiant *
           <input
             style={styles.champInput}
             value={nomUtilisateur}
             onChange={(e) => setNomUtilisateur(e.target.value)}
-            disabled={estEdition}
             placeholder="ex: djenie"
           />
         </label>

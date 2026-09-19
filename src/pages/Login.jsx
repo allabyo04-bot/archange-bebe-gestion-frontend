@@ -56,13 +56,14 @@ export default function Login() {
 
           {erreur && <div className="login-error">{erreur}</div>}
 
-          <form onSubmit={onSubmit}>
+          <form onSubmit={onSubmit} autoComplete="off">
             <div className="field">
               <label htmlFor="nomUtilisateur">Nom d'utilisateur</label>
               <input
                 id="nomUtilisateur"
+                name="archange-identifiant-caisse"
                 type="text"
-                autoComplete="username"
+                autoComplete="off"
                 value={nomUtilisateur}
                 onChange={(e) => setNomUtilisateur(e.target.value)}
                 required
@@ -73,9 +74,10 @@ export default function Login() {
               <label htmlFor="pin">Code PIN</label>
               <input
                 id="pin"
+                name="archange-pin-caisse"
                 type="password"
                 inputMode="numeric"
-                autoComplete="current-password"
+                autoComplete="off"
                 value={pin}
                 onChange={(e) => setPin(e.target.value)}
                 required

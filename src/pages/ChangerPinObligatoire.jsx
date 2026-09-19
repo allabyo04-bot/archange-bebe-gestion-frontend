@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { appelApi, getUtilisateur, setSession, getToken } from '../lib/api';
+import { appelApi, getUtilisateur, setSession, getToken, clearSession } from '../lib/api';
 import './Login.css';
 
 // Affiché juste après la connexion quand un administrateur a réinitialisé le
@@ -81,6 +81,13 @@ export default function ChangerPinObligatoire() {
               {chargement ? 'Enregistrement…' : 'Valider mon nouveau code'}
             </button>
           </form>
+
+          <p style={{ textAlign: 'center', marginTop: 16, fontSize: 13 }}>
+            Ce n'est pas vous ?{' '}
+            <a href="#" onClick={(e) => { e.preventDefault(); clearSession(); navigate('/'); }}>
+              Se déconnecter
+            </a>
+          </p>
         </div>
       </div>
     </div>

@@ -130,7 +130,13 @@ function CarteUtilisateur({ utilisateur, onBasculerActif, onModifier, onVoirActi
           <div style={styles.nomComplet}>{utilisateur.nomComplet}</div>
           <div style={styles.identifiant}>@{utilisateur.nomUtilisateur}</div>
         </div>
-        <span style={{ ...styles.pointStatut, background: utilisateur.actif ? '#1E6B36' : 'var(--brown-soft)' }} />
+        <span style={{
+          ...styles.badgeStatut,
+          background: utilisateur.actif ? '#E3F3E8' : '#FBE4E1',
+          color: utilisateur.actif ? '#1E6B36' : 'var(--error)',
+        }}>
+          {utilisateur.actif ? '● Actif' : '● Inactif'}
+        </span>
       </div>
 
       <div style={styles.badges}>
@@ -424,7 +430,7 @@ const styles = {
   avatar: { width: 40, height: 40, borderRadius: '50%', background: 'var(--cream-deep)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 13, color: 'var(--gold-deep)', flexShrink: 0 },
   nomComplet: { fontWeight: 700, fontSize: 14 },
   identifiant: { fontSize: 12, color: 'var(--brown-soft)' },
-  pointStatut: { width: 10, height: 10, borderRadius: '50%', flexShrink: 0 },
+  badgeStatut: { fontSize: 11, fontWeight: 700, padding: '3px 8px', borderRadius: 20, flexShrink: 0, whiteSpace: 'nowrap' },
   badges: { display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 12 },
   badge: { padding: '4px 10px', borderRadius: 20, color: 'var(--white)', fontSize: 11, fontWeight: 600 },
   badgeLieu: { padding: '4px 10px', borderRadius: 20, background: 'var(--cream)', fontSize: 11, color: 'var(--brown-soft)' },

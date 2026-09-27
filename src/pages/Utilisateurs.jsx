@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { appelApi } from '../lib/api';
+import RaccourcisPeriode from '../lib/RaccourcisPeriode';
 
 export default function Utilisateurs() {
   const navigate = useNavigate();
@@ -288,6 +289,7 @@ function FormulaireUtilisateur({ lieux, roles, utilisateurEnEdition, onFermer, o
 function PanneauRapportActivite({ utilisateur, onFermer }) {
   const [dateDebut, setDateDebut] = useState('');
   const [dateFin, setDateFin] = useState('');
+  const [raccourciActif, setRaccourciActif] = useState(null);
   const [rapport, setRapport] = useState(null);
   const [chargement, setChargement] = useState(true);
   const [erreur, setErreur] = useState('');
@@ -314,14 +316,21 @@ function PanneauRapportActivite({ utilisateur, onFermer }) {
           <button onClick={onFermer} style={styles.boutonModifier}>✕</button>
         </div>
 
+        <RaccourcisPeriode
+          raccourciActif={raccourciActif}
+          onChangerPeriode={(id, periode) => {
+            setRaccourciActif(id);
+            if (periode) { setDateDebut(periode.debut); setDateFin(periode.fin); }
+          }}
+        />
         <div style={{ display: 'flex', gap: 10, marginBottom: 16 }}>
           <label style={{ fontSize: 13 }}>
             Du
-            <input type="date" style={{ ...styles.champInput, marginLeft: 6 }} value={dateDebut} onChange={(e) => setDateDebut(e.target.value)} />
+            <input type="date" style={{ ...styles.champInput, marginLeft: 6 }} value={dateDebut} onChange={(e) => { setDateDebut(e.target.value); setRaccourciActif('personnalise'); }} />
           </label>
           <label style={{ fontSize: 13 }}>
             Au
-            <input type="date" style={{ ...styles.champInput, marginLeft: 6 }} value={dateFin} onChange={(e) => setDateFin(e.target.value)} />
+            <input type="date" style={{ ...styles.champInput, marginLeft: 6 }} value={dateFin} onChange={(e) => { setDateFin(e.target.value); setRaccourciActif('personnalise'); }} />
           </label>
         </div>
 

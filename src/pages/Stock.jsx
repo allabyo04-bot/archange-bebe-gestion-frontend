@@ -90,6 +90,9 @@ export default function Stock() {
 // ONGLET RÉCEPTION (entrée initiale de marchandise)
 // ------------------------------------------------------------
 function OngletReception({ lieux, articles }) {
+  // Prix d'achat réservé aux admins : masqué ici pour les autres comptes (le serveur ne
+  // l'envoie pas et garde le prix actuel de l'article lors de la réception).
+  const estAdmin = getUtilisateur()?.role === 'ADMIN';
   const [lieuId, setLieuId] = useState('');
   const [fournisseur, setFournisseur] = useState('');
   const [reference, setReference] = useState('');
@@ -465,16 +468,18 @@ function OngletReception({ lieux, articles }) {
               onChange={(e) => setQuantiteAAjouter(e.target.value)}
             />
           </label>
-          <label style={styles.champLabel}>
-            Prix d'achat
-            <input
-              type="number"
-              min="0"
-              style={{ ...styles.champInput, width: 110 }}
-              value={prixAchatAAjouter}
-              onChange={(e) => setPrixAchatAAjouter(e.target.value)}
-            />
-          </label>
+          {estAdmin && (
+            <label style={styles.champLabel}>
+              Prix d'achat
+              <input
+                type="number"
+                min="0"
+                style={{ ...styles.champInput, width: 110 }}
+                value={prixAchatAAjouter}
+                onChange={(e) => setPrixAchatAAjouter(e.target.value)}
+              />
+            </label>
+          )}
           <label style={styles.champLabel}>
             Péremption (optionnel)
             <input
@@ -501,7 +506,7 @@ function OngletReception({ lieux, articles }) {
                     onChange={(e) => modifierQuantiteLigne(l.articleId, e.target.value)}
                     style={styles.champQuantiteInline}
                   />
-                  {' '}— {l.prixAchat.toLocaleString('fr-FR')} F/u
+                  {estAdmin && ` — ${Number(l.prixAchat || 0).toLocaleString('fr-FR')} F/u`}
                   {l.datePeremption && ` — Périme le ${new Date(l.datePeremption).toLocaleDateString('fr-FR')}`}
                   {lieuId && (
                     <span style={{ fontWeight: 400, color: 'var(--brown-soft)' }}>

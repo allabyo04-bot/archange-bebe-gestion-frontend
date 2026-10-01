@@ -507,7 +507,9 @@ export default function Articles() {
                 <tr><td style={styles.libelleConsultation}>Famille</td><td>{articleAffiche.famille?.nom || '—'}</td></tr>
                 <tr><td style={styles.libelleConsultation}>Sous-famille</td><td>{articleAffiche.sousFamille?.nom || '—'}</td></tr>
                 <tr><td style={styles.libelleConsultation}>Prix de vente</td><td>{Number(articleAffiche.prixVente).toLocaleString('fr-FR')} F</td></tr>
-                <tr><td style={styles.libelleConsultation}>Prix d'achat</td><td>{articleAffiche.prixAchat != null ? `${Number(articleAffiche.prixAchat).toLocaleString('fr-FR')} F` : '—'}</td></tr>
+                {estAdmin && (
+                  <tr><td style={styles.libelleConsultation}>Prix d'achat</td><td>{articleAffiche.prixAchat != null ? `${Number(articleAffiche.prixAchat).toLocaleString('fr-FR')} F` : '—'}</td></tr>
+                )}
                 <tr><td style={styles.libelleConsultation}>Stock actuel</td><td>{articleAffiche.stockActuel}</td></tr>
                 <tr><td style={styles.libelleConsultation}>Seuil d'alerte</td><td>{articleAffiche.seuilAlerte}</td></tr>
                 <tr><td style={styles.libelleConsultation}>Actif</td><td>{articleAffiche.actif === false ? 'Non' : 'Oui'}</td></tr>

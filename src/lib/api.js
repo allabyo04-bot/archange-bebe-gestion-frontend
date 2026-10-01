@@ -185,3 +185,13 @@ export async function envoyerEtRecupererHtmlAvecAuth(chemin, corps) {
   }
   return texte;
 }
+// Un administrateur a accès à tout ; les autres comptes n'ont accès qu'aux modules
+// cochés pour leur rôle dans l'écran « Rôles » (liste renvoyée à la connexion).
+// Accepte un ou plusieurs modules : accès accordé si l'un d'eux est autorisé.
+export function aAcces(...modules) {
+  const u = getUtilisateur();
+  if (!u) return false;
+  if (u.role === 'ADMIN') return true;
+  const permissions = u.permissions || [];
+  return modules.some((m) => permissions.includes(m));
+}

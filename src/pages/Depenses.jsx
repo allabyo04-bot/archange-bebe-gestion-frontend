@@ -188,7 +188,11 @@ export default function Depenses() {
                         {editionId === d.id ? (
                           <>
                             <td style={styles.td}>
-                              <input type="date" style={styles.champInput} value={editionDate} onChange={(e) => setEditionDate(e.target.value)} />
+                              {estAdmin ? (
+                                <input type="date" style={styles.champInput} value={editionDate} onChange={(e) => setEditionDate(e.target.value)} />
+                              ) : (
+                                new Date(d.dateDepense).toLocaleDateString('fr-FR')
+                              )}
                             </td>
                             <td style={styles.td}>{d.categorie.nom}{d.sousCategorie ? ` — ${d.sousCategorie.nom}` : ''}</td>
                             <td style={styles.td}>
@@ -341,10 +345,14 @@ function FormulaireDepense({ categories, onFermer, onCree }) {
           <input type="number" min="0" style={styles.champInput} value={montant} onChange={(e) => setMontant(e.target.value)} />
         </label>
 
-        <label style={styles.champLabel}>
-          Date
-          <input type="date" style={styles.champInput} value={dateDepense} onChange={(e) => setDateDepense(e.target.value)} />
-        </label>
+        {/* Date modifiable par un admin seulement : les autres comptes saisissent toujours
+            au jour du jour (le serveur l'impose aussi). */}
+        {getUtilisateur()?.role === 'ADMIN' && (
+          <label style={styles.champLabel}>
+            Date
+            <input type="date" style={styles.champInput} value={dateDepense} onChange={(e) => setDateDepense(e.target.value)} />
+          </label>
+        )}
 
         <label style={styles.champLabel}>
           Description

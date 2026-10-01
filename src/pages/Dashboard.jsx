@@ -1,26 +1,34 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { appelApi, clearSession, getUtilisateur } from '../lib/api';
+import { appelApi, clearSession, getUtilisateur, aAcces } from '../lib/api';
 
+// Chaque lien est rattaché à un (ou plusieurs) module(s) de l'écran « Rôles » : le menu
+// n'affiche que ce que le rôle du compte autorise. Les liens sans module (Utilisateurs,
+// Rôles, Paramètres) restent réservés aux administrateurs.
+// États est visible avec Ventes OU Rapports, pour que les caissiers le gardent comme avant.
 const LIENS = [
-  { id: 'ventes', label: 'Ventes', chemin: '/ventes', adminSeulement: false },
-  { id: 'clients', label: 'Clients', chemin: '/clients', adminSeulement: false },
-  { id: 'articles', label: 'Articles', chemin: '/articles', adminSeulement: true },
-  { id: 'stock', label: 'Stock', chemin: '/stock', adminSeulement: true },
-  { id: 'commandes-en-ligne', label: 'Commandes en ligne', chemin: '/commandes-en-ligne', adminSeulement: false },
-  { id: 'etats', label: 'États', chemin: '/etats', adminSeulement: false },
-  { id: 'cartes-cadeaux', label: 'Cartes cadeaux', chemin: '/cartes-cadeaux', adminSeulement: false },
-  { id: 'depenses', label: 'Dépenses', chemin: '/depenses', adminSeulement: false },
-  { id: 'listes-cadeaux', label: 'Listes cadeaux', chemin: '/listes-cadeaux', adminSeulement: false },
-  { id: 'utilisateurs', label: 'Utilisateurs', chemin: '/utilisateurs', adminSeulement: true },
-  { id: 'roles', label: 'Rôles', chemin: '/roles', adminSeulement: true },
-  { id: 'parametres', label: 'Paramètres', chemin: '/parametres', adminSeulement: true },
+  { id: 'ventes', label: 'Ventes', chemin: '/ventes', modules: ['VENTES'] },
+  { id: 'clients', label: 'Clients', chemin: '/clients', modules: ['VENTES'] },
+  { id: 'articles', label: 'Articles', chemin: '/articles', modules: ['ARTICLES'] },
+  { id: 'stock', label: 'Stock', chemin: '/stock', modules: ['STOCK'] },
+  { id: 'commandes-en-ligne', label: 'Commandes en ligne', chemin: '/commandes-en-ligne', modules: ['VENTES'] },
+  { id: 'etats', label: 'États', chemin: '/etats', modules: ['VENTES', 'RAPPORTS'] },
+  { id: 'cartes-cadeaux', label: 'Cartes cadeaux', chemin: '/cartes-cadeaux', modules: ['VENTES'] },
+  { id: 'depenses', label: 'Dépenses', chemin: '/depenses', modules: ['DEPENSES'] },
+  { id: 'listes-cadeaux', label: 'Listes cadeaux', chemin: '/listes-cadeaux', modules: ['VENTES'] },
+  { id: 'utilisateurs', label: 'Utilisateurs', chemin: '/utilisateurs', modules: [] },
+  { id: 'roles', label: 'Rôles', chemin: '/roles', modules: [] },
+  { id: 'parametres', label: 'Paramètres', chemin: '/parametres', modules: [] },
 ];
+
+export { LIENS };
 
 export default function Dashboard() {
   const navigate = useNavigate();
   const utilisateur = getUtilisateur();
   const estAdmin = utilisateur?.role === 'ADMIN';
+  const voitVentes = aAcces('VENTES');
+  const voitStock = aAcces('STOCK', 'ARTICLES');
   const [dashboard, setDashboard] = useState(null);
   const [erreur, setErreur] = useState('');
 
@@ -44,7 +52,7 @@ export default function Dashboard() {
         </div>
 
         <nav style={styles.nav} className="app-nav">
-          {LIENS.filter((lien) => !lien.adminSeulement || estAdmin).map((lien) => (
+          {LIENS.filter((lien) => estAdmin || (lien.modules.length > 0 && aAcces(...lien.modules))).map((lien) => (
             <button key={lien.id} onClick={() => navigate(lien.chemin)} style={styles.boutonNav}>
               {lien.label}
             </button>
@@ -65,6 +73,7 @@ export default function Dashboard() {
 
         {dashboard && (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 16, maxWidth: 800 }}>
+            {voitVentes && (
             <div
               style={{ background: 'var(--cream-deep)', padding: 20, borderRadius: 12, cursor: 'pointer' }}
               onClick={() => navigate('/ventes?onglet=historique&periode=jour')}
@@ -73,7 +82,8 @@ export default function Dashboard() {
               <div style={{ fontSize: 24, fontWeight: 700 }}>{dashboard.ventes.total.toLocaleString('fr-FR')} F</div>
               <div style={{ fontSize: 12, opacity: 0.6 }}>{dashboard.ventes.nombre} vente(s)</div>
             </div>
-            {!estAdmin && (
+            )}
+            {!estAdmin && (voitStock || voitVentes) && (
               <div style={{ background: 'var(--cream-deep)', padding: 20, borderRadius: 12 }}>
                 <div style={{ fontSize: 13, opacity: 0.7 }}>Alertes stock</div>
                 <div style={{ fontSize: 24, fontWeight: 700 }}>{dashboard.alertesStock.length}</div>
@@ -85,10 +95,12 @@ export default function Dashboard() {
                 remisesMois={dashboard.remises.mois.total}
               />
             )}
+            {voitVentes && (
             <div style={{ background: 'var(--cream-deep)', padding: 20, borderRadius: 12 }}>
               <div style={{ fontSize: 13, opacity: 0.7 }}>Demandes de remise</div>
               <div style={{ fontSize: 24, fontWeight: 700 }}>{dashboard.demandesRemiseEnAttente}</div>
             </div>
+            )}
             {estAdmin && (
               <>
                 <div style={{ background: 'var(--cream-deep)', padding: 20, borderRadius: 12 }}>

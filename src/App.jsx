@@ -17,6 +17,11 @@ import Clients from './pages/Clients';
 import CommandesEnLigne from './pages/CommandesEnLigne.jsx';
 import Parametres from './pages/Parametres.jsx';
 import ChangerPinObligatoire from './pages/ChangerPinObligatoire.jsx';
+import { getUtilisateur, aAcces } from './lib/api';
+import { LIENS } from './pages/Dashboard.jsx';
+
+const MODULES_PAR_CHEMIN = Object.fromEntries(LIENS.map((l) => [l.chemin, l.modules]));
+MODULES_PAR_CHEMIN['/familles'] = ['ARTICLES'];
 
 function estConnecte() {
   return !!localStorage.getItem('jesma_token');
@@ -28,9 +33,19 @@ function doitChangerPin() {
   try { return !!JSON.parse(brut).doitChangerPin; } catch { return false; }
 }
 
-function RouteProtegee({ children }) {
+// modules : si fourni, le compte doit avoir au moins un de ces modules (ou être admin) ;
+// tableau vide = réservé aux administrateurs. Évite qu'un profil limité (ex. gestionnaire
+// de stock) atteigne un écran non autorisé en tapant l'adresse à la main.
+function RouteProtegee({ children, modules }) {
   if (!estConnecte()) return <Navigate to="/" replace />;
   if (doitChangerPin()) return <Navigate to="/changer-pin-obligatoire" replace />;
+  if (modules) {
+    const u = getUtilisateur();
+    const estAdmin = u?.role === 'ADMIN';
+    if (!estAdmin && (modules.length === 0 || !aAcces(...modules))) {
+      return <Navigate to="/dashboard" replace />;
+    }
+  }
   return children;
 }
 
@@ -42,7 +57,7 @@ export default function App() {
       <Route
         path="/dashboard"
         element={
-          <RouteProtegee>
+          <RouteProtegee modules={MODULES_PAR_CHEMIN['/dashboard']}>
             <Dashboard />
           </RouteProtegee>
         }
@@ -50,7 +65,7 @@ export default function App() {
       <Route
         path="/articles"
         element={
-          <RouteProtegee>
+          <RouteProtegee modules={MODULES_PAR_CHEMIN['/articles']}>
             <Articles />
           </RouteProtegee>
         }
@@ -58,7 +73,7 @@ export default function App() {
       <Route
         path="/roles"
         element={
-          <RouteProtegee>
+          <RouteProtegee modules={MODULES_PAR_CHEMIN['/roles']}>
             <Roles />
           </RouteProtegee>
         }
@@ -66,7 +81,7 @@ export default function App() {
       <Route
         path="/familles"
         element={
-          <RouteProtegee>
+          <RouteProtegee modules={MODULES_PAR_CHEMIN['/familles']}>
             <Familles />
           </RouteProtegee>
         }
@@ -74,7 +89,7 @@ export default function App() {
       <Route
         path="/parametres"
         element={
-          <RouteProtegee>
+          <RouteProtegee modules={MODULES_PAR_CHEMIN['/parametres']}>
             <Parametres />
           </RouteProtegee>
         }
@@ -82,7 +97,7 @@ export default function App() {
       <Route
         path="/ventes"
         element={
-          <RouteProtegee>
+          <RouteProtegee modules={MODULES_PAR_CHEMIN['/ventes']}>
             <Ventes />
           </RouteProtegee>
         }
@@ -90,7 +105,7 @@ export default function App() {
       <Route
         path="/stock"
         element={
-          <RouteProtegee>
+          <RouteProtegee modules={MODULES_PAR_CHEMIN['/stock']}>
             <Stock />
           </RouteProtegee>
         }
@@ -98,7 +113,7 @@ export default function App() {
       <Route
         path="/etats"
         element={
-          <RouteProtegee>
+          <RouteProtegee modules={MODULES_PAR_CHEMIN['/etats']}>
             <Etats />
           </RouteProtegee>
         }
@@ -106,7 +121,7 @@ export default function App() {
       <Route
         path="/utilisateurs"
         element={
-          <RouteProtegee>
+          <RouteProtegee modules={MODULES_PAR_CHEMIN['/utilisateurs']}>
             <Utilisateurs />
           </RouteProtegee>
         }
@@ -114,7 +129,7 @@ export default function App() {
       <Route
         path="/cartes-cadeaux"
         element={
-          <RouteProtegee>
+          <RouteProtegee modules={MODULES_PAR_CHEMIN['/cartes-cadeaux']}>
             <CartesCadeaux />
           </RouteProtegee>
         }
@@ -122,7 +137,7 @@ export default function App() {
       <Route
         path="/depenses"
         element={
-          <RouteProtegee>
+          <RouteProtegee modules={MODULES_PAR_CHEMIN['/depenses']}>
             <Depenses />
           </RouteProtegee>
         }
@@ -130,7 +145,7 @@ export default function App() {
       <Route
         path="/listes-cadeaux"
         element={
-          <RouteProtegee>
+          <RouteProtegee modules={MODULES_PAR_CHEMIN['/listes-cadeaux']}>
             <ListesCadeaux />
           </RouteProtegee>
         }
@@ -140,7 +155,7 @@ export default function App() {
       <Route
   path="/clients"
   element={
-    <RouteProtegee>
+    <RouteProtegee modules={MODULES_PAR_CHEMIN['/clients']}>
       <Clients />
     </RouteProtegee>
   }
@@ -148,7 +163,7 @@ export default function App() {
       <Route
         path="/commandes-en-ligne"
         element={
-          <RouteProtegee>
+          <RouteProtegee modules={MODULES_PAR_CHEMIN['/commandes-en-ligne']}>
             <CommandesEnLigne />
           </RouteProtegee>
         }

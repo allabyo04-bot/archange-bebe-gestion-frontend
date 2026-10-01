@@ -21,7 +21,9 @@ import { getUtilisateur, aAcces } from './lib/api';
 import { LIENS } from './pages/Dashboard.jsx';
 
 const MODULES_PAR_CHEMIN = Object.fromEntries(LIENS.map((l) => [l.chemin, l.modules]));
-MODULES_PAR_CHEMIN['/familles'] = ['ARTICLES'];
+// Gestion des familles (renommer, etc.) : admins seulement. La création d'une famille par
+// un non-admin se fait directement depuis le formulaire « Nouvel article ».
+MODULES_PAR_CHEMIN['/familles'] = [];
 
 function estConnecte() {
   return !!localStorage.getItem('jesma_token');

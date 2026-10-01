@@ -345,14 +345,22 @@ function PanneauRapportActivite({ utilisateur, onFermer }) {
               <CarteResume label="Réceptions" valeur={rapport.resume.nbReceptions} section="receptions" sectionOuverte={sectionOuverte} setSectionOuverte={setSectionOuverte} sousTexte={`${rapport.resume.quantiteTotaleReceptionnee} unité(s) reçue(s)`} />
               <CarteResume label="Corrections d'inventaire" valeur={rapport.resume.nbCorrectionsInventaire} section="correctionsInventaire" sectionOuverte={sectionOuverte} setSectionOuverte={setSectionOuverte} />
               <CarteResume label="Transferts" valeur={rapport.resume.nbTransferts} section="transferts" sectionOuverte={sectionOuverte} setSectionOuverte={setSectionOuverte} />
+              <CarteResume label="Familles / sous-familles créées" valeur={(rapport.resume.nbFamillesCreees ?? 0) + (rapport.resume.nbSousFamillesCreees ?? 0)} section="famillesCreees" sectionOuverte={sectionOuverte} setSectionOuverte={setSectionOuverte} sousTexte={`${rapport.resume.nbFamillesCreees ?? 0} famille(s), ${rapport.resume.nbSousFamillesCreees ?? 0} sous-famille(s)`} />
+              <CarteResume label="Comptages envoyés pour validation" valeur={rapport.resume.nbInventairesSoumis ?? 0} section="inventairesSoumis" sectionOuverte={sectionOuverte} setSectionOuverte={setSectionOuverte} sousTexte={`${rapport.resume.nbInventairesEnAttente ?? 0} en attente`} />
             </div>
 
             {sectionOuverte === 'articlesCrees' && (
               <ListeDetail titre="Articles créés">
                 {rapport.detail.articlesCrees.map((a) => (
                   <div key={a.id} style={styles.ligneDetail}>
-                    <span>{a.designation} ({a.reference})</span>
-                    <span>{Number(a.prixVente).toLocaleString('fr-FR')} F — {new Date(a.createdAt).toLocaleDateString('fr-FR')}</span>
+                    <span>
+                      {a.designation} ({a.reference})
+                      {a.famille ? ` — ${a.famille}${a.sousFamille ? ` / ${a.sousFamille}` : ''}` : ''}
+                    </span>
+                    <span>
+                      Achat {Number(a.prixAchat ?? 0).toLocaleString('fr-FR')} F · Vente {Number(a.prixVente).toLocaleString('fr-FR')} F
+                      {' — '}{new Date(a.createdAt).toLocaleString('fr-FR')}
+                    </span>
                   </div>
                 ))}
               </ListeDetail>
@@ -383,6 +391,29 @@ function PanneauRapportActivite({ utilisateur, onFermer }) {
                   <div key={i} style={styles.ligneDetail}>
                     <span>{c.article} ({c.reference}) — {c.lieu} — écart {c.ecart > 0 ? '+' : ''}{c.ecart}</span>
                     <span>{new Date(c.date).toLocaleDateString('fr-FR')}</span>
+                  </div>
+                ))}
+              </ListeDetail>
+            )}
+            {sectionOuverte === 'famillesCreees' && (
+              <ListeDetail titre="Familles / sous-familles créées">
+                {(rapport.detail.famillesCreees || []).map((f, i) => (
+                  <div key={i} style={styles.ligneDetail}>
+                    <span>{f.description}</span>
+                    <span>{new Date(f.date).toLocaleString('fr-FR')}</span>
+                  </div>
+                ))}
+              </ListeDetail>
+            )}
+            {sectionOuverte === 'inventairesSoumis' && (
+              <ListeDetail titre="Comptages envoyés pour validation">
+                {(rapport.detail.inventairesSoumis || []).map((inv) => (
+                  <div key={inv.id} style={styles.ligneDetail}>
+                    <span>
+                      N°{inv.id} — {inv.lieu} — {inv.nbLignes} écart(s) —{' '}
+                      {inv.statut === 'EN_ATTENTE' ? 'En attente' : inv.statut === 'VALIDE' ? `Validé par ${inv.traitePar}` : `Rejeté par ${inv.traitePar}${inv.motifRejet ? ` (${inv.motifRejet})` : ''}`}
+                    </span>
+                    <span>{new Date(inv.date).toLocaleString('fr-FR')}</span>
                   </div>
                 ))}
               </ListeDetail>

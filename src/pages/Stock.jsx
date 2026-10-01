@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { appelApi, uploaderFichierImport, envoyerEtRecupererHtmlAvecAuth } from '../lib/api';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { appelApi, getUtilisateur, uploaderFichierImport, envoyerEtRecupererHtmlAvecAuth } from '../lib/api';
 import RaccourcisPeriode from '../lib/RaccourcisPeriode';
 
 const SOUS_ONGLETS = [
@@ -31,7 +31,14 @@ function genererReferenceTransfert() {
 
 export default function Stock() {
   const navigate = useNavigate();
-  const [ongletActif, setOngletActif] = useState('reception');
+  const [searchParams] = useSearchParams();
+  // ?onglet=inventaire permet d'arriver directement sur l'onglet voulu (ex. tuile
+  // « Inventaires à valider » du tableau de bord).
+  const ongletDemande = searchParams.get('onglet');
+  const [ongletActif, setOngletActif] = useState(
+    SOUS_ONGLETS.some((o) => o.id === ongletDemande) ? ongletDemande : 'reception'
+  );
+  const [versionInventaires, setVersionInventaires] = useState(0);
   const [lieux, setLieux] = useState([]);
   const [articles, setArticles] = useState([]);
   const [familles, setFamilles] = useState([]);
@@ -66,7 +73,12 @@ export default function Stock() {
       {ongletActif === 'reception' && <OngletReception lieux={lieux} articles={articles} />}
       {ongletActif === 'import' && <OngletImportExcel lieux={lieux} />}
       {ongletActif === 'transferts' && <OngletTransferts lieux={lieux} articles={articles} />}
-      {ongletActif === 'inventaire' && <OngletInventaire lieux={lieux} familles={familles} />}
+      {ongletActif === 'inventaire' && (
+        <div style={{ display: 'grid', gap: 20 }}>
+          <OngletInventaire lieux={lieux} familles={familles} onSoumis={() => setVersionInventaires((v) => v + 1)} />
+          <BlocInventairesEnAttente version={versionInventaires} />
+        </div>
+      )}
       {ongletActif === 'historique' && <OngletHistorique articles={articles} lieux={lieux} />}
       {ongletActif === 'etat' && <OngletEtatStock lieux={lieux} familles={familles} />}
       {ongletActif === 'etat-global' && <OngletEtatGlobal lieux={lieux} articles={articles} />}
@@ -734,7 +746,8 @@ function OngletTransferts({ lieux, articles }) {
 // ONGLET INVENTAIRE / CORRECTION DE STOCK
 // (un article, une famille entière, ou une sous-famille entière — par boutique)
 // ------------------------------------------------------------
-function OngletInventaire({ lieux, familles }) {
+function OngletInventaire({ lieux, familles, onSoumis }) {
+  const estAdmin = getUtilisateur()?.role === 'ADMIN';
   const navigate = useNavigate();
   const [lieuId, setLieuId] = useState('');
   const [portee, setPortee] = useState('article');
@@ -826,6 +839,7 @@ function OngletInventaire({ lieux, familles }) {
       });
       setResultat(reponse);
       setLignes(null);
+      if (onSoumis) onSoumis();
     } catch (err) {
       setErreur(err.message);
     } finally {
@@ -879,11 +893,26 @@ function OngletInventaire({ lieux, familles }) {
         donnée. Seuls les écarts avec le stock système sont corrigés — chaque correction est tracée dans
         l'historique des mouvements.
       </p>
+      {!estAdmin && (
+        <p style={{ ...styles.texteMuet, fontWeight: 600 }}>
+          Vos corrections ne modifient pas le stock tout de suite : elles sont envoyées à un administrateur,
+          qui les valide ou les rejette (voir « Mes comptages envoyés » plus bas).
+        </p>
+      )}
 
       {erreur && <div style={styles.bandeauErreur}>{erreur}</div>}
-      {resultat && (
+      {resultat && resultat.enAttente && (
         <div style={styles.bandeauConfirmation}>
-          Inventaire appliqué : {resultat.corrections} correction(s), {resultat.inchanges} article(s) déjà juste(s).
+          Comptage envoyé pour validation : {resultat.lignesEnAttente} écart(s) à valider par un administrateur,
+          {' '}{resultat.inchanges} article(s) déjà juste(s). Le stock ne changera qu'après validation.
+          {resultat.erreurs.length > 0 && ` ${resultat.erreurs.length} erreur(s).`}
+        </div>
+      )}
+      {resultat && !resultat.enAttente && (
+        <div style={styles.bandeauConfirmation}>
+          {resultat.corrections > 0 || estAdmin
+            ? `Inventaire appliqué : ${resultat.corrections} correction(s), ${resultat.inchanges} article(s) déjà juste(s).`
+            : `Aucun écart : les ${resultat.inchanges} article(s) comptés sont déjà justes, rien à envoyer.`}
           {resultat.erreurs.length > 0 && ` ${resultat.erreurs.length} erreur(s).`}
         </div>
       )}
@@ -1066,6 +1095,158 @@ function OngletInventaire({ lieux, familles }) {
 // ------------------------------------------------------------
 // ONGLET HISTORIQUE DES MOUVEMENTS
 // ------------------------------------------------------------
+const LIBELLES_STATUT_INVENTAIRE = {
+  EN_ATTENTE: { texte: 'En attente', couleur: '#b7791f' },
+  VALIDE: { texte: 'Validé', couleur: '#2f855a' },
+  REJETE: { texte: 'Rejeté', couleur: '#c53030' },
+};
+
+// Comptages d'inventaire des non-admins.
+// - Admin : liste des comptages « En attente » avec le détail des écarts, boutons Valider / Rejeter,
+//   et l'historique des comptages déjà traités.
+// - Non-admin : la liste de ses propres comptages et leur sort (en attente, validé, rejeté + motif).
+function BlocInventairesEnAttente({ version }) {
+  const estAdmin = getUtilisateur()?.role === 'ADMIN';
+  const [inventaires, setInventaires] = useState([]);
+  const [erreur, setErreur] = useState('');
+  const [message, setMessage] = useState('');
+  const [actionEnCours, setActionEnCours] = useState(null);
+  const [ouvert, setOuvert] = useState(null);
+  const [voirTraites, setVoirTraites] = useState(false);
+
+  function charger() {
+    appelApi('GET', '/stock/inventaires-en-attente')
+      .then(setInventaires)
+      .catch((err) => setErreur(err.message));
+  }
+
+  useEffect(charger, [version]);
+
+  async function valider(inv) {
+    if (!window.confirm(`Valider ce comptage ? Le stock de ${inv.lignes.length} article(s) sera corrigé.`)) return;
+    setActionEnCours(inv.id); setErreur(''); setMessage('');
+    try {
+      await appelApi('POST', `/stock/inventaires-en-attente/${inv.id}/valider`);
+      setMessage(`Comptage n°${inv.id} validé : stock corrigé.`);
+      charger();
+    } catch (err) {
+      setErreur(err.message);
+    } finally {
+      setActionEnCours(null);
+    }
+  }
+
+  async function rejeter(inv) {
+    const motif = window.prompt('Motif du rejet (facultatif) :', '');
+    if (motif === null) return;
+    setActionEnCours(inv.id); setErreur(''); setMessage('');
+    try {
+      await appelApi('POST', `/stock/inventaires-en-attente/${inv.id}/rejeter`, { motif });
+      setMessage(`Comptage n°${inv.id} rejeté : le stock n'a pas été modifié.`);
+      charger();
+    } catch (err) {
+      setErreur(err.message);
+    } finally {
+      setActionEnCours(null);
+    }
+  }
+
+  const enAttente = inventaires.filter((i) => i.statut === 'EN_ATTENTE');
+  const traites = inventaires.filter((i) => i.statut !== 'EN_ATTENTE');
+  const affiches = estAdmin ? (voirTraites ? traites : enAttente) : inventaires;
+
+  return (
+    <div style={styles.carte}>
+      <h3 style={styles.titreCarte}>
+        {estAdmin ? `Comptages à valider (${enAttente.length})` : 'Mes comptages envoyés'}
+      </h3>
+      {estAdmin && (
+        <p style={styles.texteMuet}>
+          Comptages faits par les comptes non-administrateurs. Rien n'est appliqué au stock avant votre validation.
+          À la validation, c'est l'écart constaté au moment du comptage qui est appliqué (les ventes faites
+          entre-temps restent donc bien comptées).
+          {' '}
+          <button type="button" onClick={() => setVoirTraites((v) => !v)} style={{ ...styles.boutonAnnuler, padding: '4px 10px', marginLeft: 6 }}>
+            {voirTraites ? 'Voir ceux à valider' : `Voir l'historique (${traites.length})`}
+          </button>
+        </p>
+      )}
+      {erreur && <div style={styles.bandeauErreur}>{erreur}</div>}
+      {message && <div style={styles.bandeauConfirmation}>{message}</div>}
+      {affiches.length === 0 && (
+        <p style={styles.texteMuet}>
+          {estAdmin && !voirTraites ? 'Aucun comptage en attente.' : 'Aucun comptage.'}
+        </p>
+      )}
+
+      {affiches.map((inv) => {
+        const statut = LIBELLES_STATUT_INVENTAIRE[inv.statut] || { texte: inv.statut, couleur: '#555' };
+        const estOuvert = ouvert === inv.id || (estAdmin && inv.statut === 'EN_ATTENTE');
+        return (
+          <div key={inv.id} style={{ border: '1px solid var(--cream-deep)', borderRadius: 10, padding: 12, marginBottom: 12 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
+              <div>
+                <strong>N°{inv.id}</strong> — {inv.lieu?.nom} — {new Date(inv.createdAt).toLocaleString('fr-FR')}
+                {estAdmin && <> — par <strong>{inv.utilisateur?.nomComplet}</strong></>}
+                <div style={{ fontSize: 12, opacity: 0.75 }}>
+                  {inv.lignes.length} écart(s)
+                  {inv.notes ? ` · Note : ${inv.notes}` : ''}
+                  {inv.traitePar ? ` · ${statut.texte} par ${inv.traitePar.nomComplet} le ${new Date(inv.traiteLe).toLocaleString('fr-FR')}` : ''}
+                  {inv.motifRejet ? ` · Motif : ${inv.motifRejet}` : ''}
+                </div>
+              </div>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                <span style={{ color: statut.couleur, fontWeight: 700, fontSize: 13 }}>{statut.texte}</span>
+                {!(estAdmin && inv.statut === 'EN_ATTENTE') && (
+                  <button type="button" onClick={() => setOuvert(estOuvert ? null : inv.id)} style={{ ...styles.boutonAnnuler, padding: '4px 10px' }}>
+                    {estOuvert ? 'Masquer' : 'Détail'}
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {estOuvert && (
+              <table style={{ ...styles.tableau, marginTop: 10 }}>
+                <thead>
+                  <tr>
+                    <th style={styles.th}>Article</th>
+                    <th style={{ ...styles.th, textAlign: 'center' }}>Stock système (au comptage)</th>
+                    <th style={{ ...styles.th, textAlign: 'center' }}>Compté</th>
+                    <th style={{ ...styles.th, textAlign: 'center' }}>Écart</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {inv.lignes.map((l) => (
+                    <tr key={l.id}>
+                      <td style={styles.td}>{l.article?.designation} <span style={{ opacity: 0.6 }}>({l.article?.reference})</span></td>
+                      <td style={{ ...styles.td, textAlign: 'center' }}>{l.stockSysteme}</td>
+                      <td style={{ ...styles.td, textAlign: 'center' }}>{l.quantiteComptee}</td>
+                      <td style={{ ...styles.td, textAlign: 'center', fontWeight: 700, color: l.ecart < 0 ? '#c53030' : '#2f855a' }}>
+                        {l.ecart > 0 ? `+${l.ecart}` : l.ecart}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+
+            {estAdmin && inv.statut === 'EN_ATTENTE' && (
+              <div style={{ display: 'flex', gap: 10, marginTop: 12, justifyContent: 'flex-end' }}>
+                <button type="button" onClick={() => rejeter(inv)} disabled={actionEnCours === inv.id} style={styles.boutonAnnuler}>
+                  Rejeter
+                </button>
+                <button type="button" onClick={() => valider(inv)} disabled={actionEnCours === inv.id} style={{ ...styles.boutonValider, width: 'auto' }}>
+                  {actionEnCours === inv.id ? 'Traitement…' : 'Valider et corriger le stock'}
+                </button>
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 function OngletHistorique({ articles, lieux }) {
   const [articleFiltre, setArticleFiltre] = useState('');
   const [lieuFiltre, setLieuFiltre] = useState('');

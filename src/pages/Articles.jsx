@@ -1,9 +1,14 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { appelApi, uploaderPhotoArticle, supprimerPhotoArticle, definirPhotoPrincipaleArticle, envoyerEtRecupererHtmlAvecAuth } from '../lib/api';
+import { appelApi, getUtilisateur, uploaderPhotoArticle, supprimerPhotoArticle, definirPhotoPrincipaleArticle, envoyerEtRecupererHtmlAvecAuth } from '../lib/api';
 
 export default function Articles() {
   const navigate = useNavigate();
+  // Un non-admin (ex. gestionnaire de stock avec le module Articles) peut CRÉER des articles,
+  // familles et sous-familles, mais pas modifier l'existant : les boutons de modification
+  // sont masqués et une recherche ouvre la fiche en lecture seule. Le serveur l'impose aussi.
+  const utilisateur = getUtilisateur();
+  const estAdmin = utilisateur?.role === 'ADMIN';
   const [searchParams, setSearchParams] = useSearchParams();
   const [articles, setArticles] = useState([]);
   const [familles, setFamilles] = useState([]);
@@ -190,7 +195,8 @@ export default function Articles() {
 
   function choisirArticlePourPrix(article) {
     setPanneauPrixOuvert(false);
-    ouvrirEdition(article);
+    if (estAdmin) ouvrirEdition(article);
+    else setArticleAffiche(article);
   }
 
   // --- Imprimer la liste de tous les articles dont le nom contient un texte donné ---
@@ -429,24 +435,30 @@ export default function Articles() {
               🖨️ Étiquettes à imprimer ({nombreAImprimer})
             </button>
           )}
-          <button onClick={() => navigate('/familles')} style={styles.boutonRetour}>
-            Familles &amp; sous-familles
-          </button>
+          {estAdmin && (
+            <button onClick={() => navigate('/familles')} style={styles.boutonRetour}>
+              Familles &amp; sous-familles
+            </button>
+          )}
           <button onClick={ouvrirPanneauReimpression} style={styles.boutonRetour}>
             🖨️ Réimprimer une étiquette
           </button>
-          <button onClick={ouvrirPanneauModif} style={styles.boutonRetour}>
-            🔍 Modifier un article
-          </button>
+          {estAdmin && (
+            <button onClick={ouvrirPanneauModif} style={styles.boutonRetour}>
+              🔍 Modifier un article
+            </button>
+          )}
           <button onClick={ouvrirPanneauPrix} style={styles.boutonRetour}>
             🔍 Rechercher par prix
           </button>
           <button onClick={ouvrirPanneauListe} style={styles.boutonRetour}>
             🖨️ Imprimer une liste (par nom)
           </button>
-          <button onClick={ouvrirPanneauDeplacement} style={styles.boutonRetour}>
-            📂 Déplacer des articles
-          </button>
+          {estAdmin && (
+            <button onClick={ouvrirPanneauDeplacement} style={styles.boutonRetour}>
+              📂 Déplacer des articles
+            </button>
+          )}
           <button onClick={ouvrirCreation} style={styles.boutonAjouter}>
             + Nouvel article
           </button>
@@ -466,6 +478,8 @@ export default function Articles() {
               onCodeBarreGenere={mettreAJourArticle}
               onModifier={ouvrirEdition}
               onVoir={setArticleAffiche}
+              peutModifier={estAdmin}
+              peutCompleter={estAdmin || article.creeParId === utilisateur?.id}
             />
           ))}
           {articles.length === 0 && <p>Aucun article pour l'instant.</p>}
@@ -505,12 +519,14 @@ export default function Articles() {
                 <p style={{ fontSize: 13, whiteSpace: 'pre-wrap' }}>{articleAffiche.description}</p>
               </>
             )}
-            <button
-              onClick={() => { setArticleAffiche(null); ouvrirEdition(articleAffiche); }}
-              style={{ ...styles.boutonAjouter, marginTop: 14 }}
-            >
-              ✏️ Modifier cet article
-            </button>
+            {estAdmin && (
+              <button
+                onClick={() => { setArticleAffiche(null); ouvrirEdition(articleAffiche); }}
+                style={{ ...styles.boutonAjouter, marginTop: 14 }}
+              >
+                ✏️ Modifier cet article
+              </button>
+            )}
           </div>
         </div>
       )}
@@ -915,7 +931,9 @@ export default function Articles() {
   );
 }
 
-function CarteArticle({ article, onPhotoMiseAJour, onCodeBarreGenere, onModifier, onVoir }) {
+// peutModifier : admin uniquement (bouton ✏️).
+// peutCompleter : admin, ou créateur de l'article (photos, génération du code-barre).
+function CarteArticle({ article, onPhotoMiseAJour, onCodeBarreGenere, onModifier, onVoir, peutModifier = true, peutCompleter = true }) {
   const [envoiEnCours, setEnvoiEnCours] = useState(false);
   const [erreurPhoto, setErreurPhoto] = useState('');
   const [actionPhotoEnCours, setActionPhotoEnCours] = useState(null); // id de la photo en cours de suppression/promotion
@@ -986,7 +1004,7 @@ function CarteArticle({ article, onPhotoMiseAJour, onCodeBarreGenere, onModifier
           <img src={article.photoUrl} alt={article.designation} style={styles.image} />
         ) : (
           <div style={styles.placeholderPhoto}>
-            {envoiEnCours ? 'Envoi…' : '+ Ajouter une photo'}
+            {envoiEnCours ? 'Envoi…' : peutCompleter ? '+ Ajouter une photo' : 'Pas de photo'}
           </div>
         )}
         <input
@@ -994,7 +1012,7 @@ function CarteArticle({ article, onPhotoMiseAJour, onCodeBarreGenere, onModifier
           accept="image/*"
           onChange={gererAjoutPhoto}
           style={{ display: 'none' }}
-          disabled={envoiEnCours}
+          disabled={envoiEnCours || !peutCompleter}
         />
       </label>
 
@@ -1005,7 +1023,7 @@ function CarteArticle({ article, onPhotoMiseAJour, onCodeBarreGenere, onModifier
               <img
                 src={photo.url}
                 alt=""
-                onClick={() => !photo.estPrincipale && gererDefinirPrincipale(photo.id)}
+                onClick={() => peutCompleter && !photo.estPrincipale && gererDefinirPrincipale(photo.id)}
                 style={{
                   ...styles.imageMiniature,
                   outline: photo.estPrincipale ? '2px solid var(--gold-deep)' : 'none',
@@ -1015,7 +1033,7 @@ function CarteArticle({ article, onPhotoMiseAJour, onCodeBarreGenere, onModifier
                 title={photo.estPrincipale ? 'Photo principale' : 'Cliquer pour définir comme principale'}
               />
               {photo.estPrincipale && <span style={styles.etoilePrincipale}>★</span>}
-              <button
+              {peutCompleter && <button
                 type="button"
                 onClick={() => gererSuppressionPhoto(photo.id)}
                 disabled={actionPhotoEnCours === photo.id}
@@ -1023,10 +1041,10 @@ function CarteArticle({ article, onPhotoMiseAJour, onCodeBarreGenere, onModifier
                 title="Supprimer cette photo"
               >
                 ×
-              </button>
+              </button>}
             </div>
           ))}
-          <label style={styles.miniatureAjouter}>
+          {peutCompleter && <label style={styles.miniatureAjouter}>
             {envoiEnCours ? '…' : '+'}
             <input
               type="file"
@@ -1035,7 +1053,7 @@ function CarteArticle({ article, onPhotoMiseAJour, onCodeBarreGenere, onModifier
               style={{ display: 'none' }}
               disabled={envoiEnCours}
             />
-          </label>
+          </label>}
         </div>
       )}
       {photos.length > 1 && (
@@ -1049,9 +1067,11 @@ function CarteArticle({ article, onPhotoMiseAJour, onCodeBarreGenere, onModifier
             <button onClick={() => onVoir(article)} style={styles.boutonModifier} title="Voir les détails">
               👁️
             </button>
-            <button onClick={() => onModifier(article)} style={styles.boutonModifier} title="Modifier">
-              ✏️
-            </button>
+            {peutModifier && (
+              <button onClick={() => onModifier(article)} style={styles.boutonModifier} title="Modifier">
+                ✏️
+              </button>
+            )}
           </div>
         </div>
         <div style={styles.reference}>{article.reference}</div>
@@ -1066,10 +1086,12 @@ function CarteArticle({ article, onPhotoMiseAJour, onCodeBarreGenere, onModifier
           <div style={styles.codeBarreTexte}>
             {article.codeBarre}{article.codeBarreGenere ? ' (généré)' : ''}
           </div>
-        ) : (
+        ) : peutCompleter ? (
           <button onClick={genererCodeBarre} disabled={generationEnCours} style={styles.boutonGenerer}>
             {generationEnCours ? 'Génération…' : 'Générer un code-barre'}
           </button>
+        ) : (
+          <div style={styles.codeBarreTexte}>Pas de code-barre</div>
         )}
         {erreurGeneration && <p style={{ color: 'var(--error)', fontSize: 11, margin: '4px 0 0' }}>{erreurGeneration}</p>}
       </div>

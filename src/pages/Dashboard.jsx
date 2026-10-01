@@ -102,6 +102,19 @@ export default function Dashboard() {
             </div>
             )}
             {estAdmin && (
+              <div
+                style={{
+                  background: dashboard.inventairesAValider > 0 ? '#FCEBD0' : 'var(--cream-deep)',
+                  padding: 20, borderRadius: 12, cursor: 'pointer',
+                }}
+                onClick={() => navigate('/stock?onglet=inventaire')}
+                title="Comptages d'inventaire des non-administrateurs, à valider ou rejeter"
+              >
+                <div style={{ fontSize: 13, opacity: 0.7 }}>Inventaires à valider</div>
+                <div style={{ fontSize: 24, fontWeight: 700 }}>{dashboard.inventairesAValider ?? 0}</div>
+              </div>
+            )}
+            {estAdmin && (
               <>
                 <div style={{ background: 'var(--cream-deep)', padding: 20, borderRadius: 12 }}>
                   <div style={{ fontSize: 13, opacity: 0.7 }}>Remises du jour</div>

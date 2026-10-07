@@ -346,6 +346,7 @@ function PanneauRapportActivite({ utilisateur, onFermer }) {
               <CarteResume label="Corrections d'inventaire" valeur={rapport.resume.nbCorrectionsInventaire} section="correctionsInventaire" sectionOuverte={sectionOuverte} setSectionOuverte={setSectionOuverte} />
               <CarteResume label="Transferts" valeur={rapport.resume.nbTransferts} section="transferts" sectionOuverte={sectionOuverte} setSectionOuverte={setSectionOuverte} />
               <CarteResume label="Familles / sous-familles créées" valeur={(rapport.resume.nbFamillesCreees ?? 0) + (rapport.resume.nbSousFamillesCreees ?? 0)} section="famillesCreees" sectionOuverte={sectionOuverte} setSectionOuverte={setSectionOuverte} sousTexte={`${rapport.resume.nbFamillesCreees ?? 0} famille(s), ${rapport.resume.nbSousFamillesCreees ?? 0} sous-famille(s)`} />
+              <CarteResume label="Photos ajoutées" valeur={rapport.resume.nbPhotosAjoutees ?? 0} section="photosAjoutees" sectionOuverte={sectionOuverte} setSectionOuverte={setSectionOuverte} />
               <CarteResume label="Comptages envoyés pour validation" valeur={rapport.resume.nbInventairesSoumis ?? 0} section="inventairesSoumis" sectionOuverte={sectionOuverte} setSectionOuverte={setSectionOuverte} sousTexte={`${rapport.resume.nbInventairesEnAttente ?? 0} en attente`} />
             </div>
 
@@ -401,6 +402,16 @@ function PanneauRapportActivite({ utilisateur, onFermer }) {
                   <div key={i} style={styles.ligneDetail}>
                     <span>{f.description}</span>
                     <span>{new Date(f.date).toLocaleString('fr-FR')}</span>
+                  </div>
+                ))}
+              </ListeDetail>
+            )}
+            {sectionOuverte === 'photosAjoutees' && (
+              <ListeDetail titre="Photos ajoutées">
+                {(rapport.detail.photosAjoutees || []).map((ph, i) => (
+                  <div key={i} style={styles.ligneDetail}>
+                    <span>{ph.description}</span>
+                    <span>{new Date(ph.date).toLocaleString('fr-FR')}</span>
                   </div>
                 ))}
               </ListeDetail>

@@ -480,6 +480,7 @@ export default function Articles() {
               onVoir={setArticleAffiche}
               peutModifier={estAdmin}
               peutCompleter={estAdmin || article.creeParId === utilisateur?.id}
+              utilisateurId={utilisateur?.id}
             />
           ))}
           {articles.length === 0 && <p>Aucun article pour l'instant.</p>}
@@ -934,8 +935,11 @@ export default function Articles() {
 }
 
 // peutModifier : admin uniquement (bouton ✏️).
-// peutCompleter : admin, ou créateur de l'article (photos, génération du code-barre).
-function CarteArticle({ article, onPhotoMiseAJour, onCodeBarreGenere, onModifier, onVoir, peutModifier = true, peutCompleter = true }) {
+// peutCompleter : admin, ou créateur de l'article (photo principale, code-barre, toute suppression).
+// Ajouter une photo est permis à tous ceux qui voient cet écran (module Articles) ; un non-admin
+// peut supprimer les photos qu'il a lui-même ajoutées (le serveur vérifie aussi).
+function CarteArticle({ article, onPhotoMiseAJour, onCodeBarreGenere, onModifier, onVoir, peutModifier = true, peutCompleter = true, utilisateurId }) {
+  const peutSupprimerPhoto = (photo) => peutCompleter || (utilisateurId != null && photo.ajouteParId === utilisateurId);
   const [envoiEnCours, setEnvoiEnCours] = useState(false);
   const [erreurPhoto, setErreurPhoto] = useState('');
   const [actionPhotoEnCours, setActionPhotoEnCours] = useState(null); // id de la photo en cours de suppression/promotion
@@ -1006,7 +1010,7 @@ function CarteArticle({ article, onPhotoMiseAJour, onCodeBarreGenere, onModifier
           <img src={article.photoUrl} alt={article.designation} style={styles.image} />
         ) : (
           <div style={styles.placeholderPhoto}>
-            {envoiEnCours ? 'Envoi…' : peutCompleter ? '+ Ajouter une photo' : 'Pas de photo'}
+            {envoiEnCours ? 'Envoi…' : '+ Ajouter une photo'}
           </div>
         )}
         <input
@@ -1014,7 +1018,7 @@ function CarteArticle({ article, onPhotoMiseAJour, onCodeBarreGenere, onModifier
           accept="image/*"
           onChange={gererAjoutPhoto}
           style={{ display: 'none' }}
-          disabled={envoiEnCours || !peutCompleter}
+          disabled={envoiEnCours}
         />
       </label>
 
@@ -1035,7 +1039,7 @@ function CarteArticle({ article, onPhotoMiseAJour, onCodeBarreGenere, onModifier
                 title={photo.estPrincipale ? 'Photo principale' : 'Cliquer pour définir comme principale'}
               />
               {photo.estPrincipale && <span style={styles.etoilePrincipale}>★</span>}
-              {peutCompleter && <button
+              {peutSupprimerPhoto(photo) && <button
                 type="button"
                 onClick={() => gererSuppressionPhoto(photo.id)}
                 disabled={actionPhotoEnCours === photo.id}
@@ -1046,7 +1050,7 @@ function CarteArticle({ article, onPhotoMiseAJour, onCodeBarreGenere, onModifier
               </button>}
             </div>
           ))}
-          {peutCompleter && <label style={styles.miniatureAjouter}>
+          <label style={styles.miniatureAjouter}>
             {envoiEnCours ? '…' : '+'}
             <input
               type="file"
@@ -1055,7 +1059,7 @@ function CarteArticle({ article, onPhotoMiseAJour, onCodeBarreGenere, onModifier
               style={{ display: 'none' }}
               disabled={envoiEnCours}
             />
-          </label>}
+          </label>
         </div>
       )}
       {photos.length > 1 && (

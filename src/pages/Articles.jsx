@@ -4,11 +4,14 @@ import { appelApi, getUtilisateur, uploaderPhotoArticle, supprimerPhotoArticle, 
 
 export default function Articles() {
   const navigate = useNavigate();
-  // Un non-admin (ex. gestionnaire de stock avec le module Articles) peut CRÉER des articles,
-  // familles et sous-familles, mais pas modifier l'existant : les boutons de modification
-  // sont masqués et une recherche ouvre la fiche en lecture seule. Le serveur l'impose aussi.
+  // Un non-admin avec le module Articles (ex. gestionnaire de stock) peut créer des articles,
+  // familles et sous-familles ET modifier la fiche d'un article (désignation, description,
+  // famille, seuil, prix de vente/promo ; chaque changement est tracé). Restent réservés aux
+  // admins : prix d'achat, activer/désactiver, déplacer en masse, gérer les familles.
+  // Le serveur impose les mêmes règles.
   const utilisateur = getUtilisateur();
   const estAdmin = utilisateur?.role === 'ADMIN';
+  const peutModifierFiche = estAdmin || (utilisateur?.permissions || []).includes('ARTICLES');
   const [searchParams, setSearchParams] = useSearchParams();
   const [articles, setArticles] = useState([]);
   const [familles, setFamilles] = useState([]);
@@ -195,7 +198,7 @@ export default function Articles() {
 
   function choisirArticlePourPrix(article) {
     setPanneauPrixOuvert(false);
-    if (estAdmin) ouvrirEdition(article);
+    if (peutModifierFiche) ouvrirEdition(article);
     else setArticleAffiche(article);
   }
 
@@ -443,7 +446,7 @@ export default function Articles() {
           <button onClick={ouvrirPanneauReimpression} style={styles.boutonRetour}>
             🖨️ Réimprimer une étiquette
           </button>
-          {estAdmin && (
+          {peutModifierFiche && (
             <button onClick={ouvrirPanneauModif} style={styles.boutonRetour}>
               🔍 Modifier un article
             </button>
@@ -478,7 +481,7 @@ export default function Articles() {
               onCodeBarreGenere={mettreAJourArticle}
               onModifier={ouvrirEdition}
               onVoir={setArticleAffiche}
-              peutModifier={estAdmin}
+              peutModifier={peutModifierFiche}
               peutCompleter={estAdmin || article.creeParId === utilisateur?.id}
               utilisateurId={utilisateur?.id}
             />
@@ -522,7 +525,7 @@ export default function Articles() {
                 <p style={{ fontSize: 13, whiteSpace: 'pre-wrap' }}>{articleAffiche.description}</p>
               </>
             )}
-            {estAdmin && (
+            {peutModifierFiche && (
               <button
                 onClick={() => { setArticleAffiche(null); ouvrirEdition(articleAffiche); }}
                 style={{ ...styles.boutonAjouter, marginTop: 14 }}
@@ -934,7 +937,7 @@ export default function Articles() {
   );
 }
 
-// peutModifier : admin uniquement (bouton ✏️).
+// peutModifier : admin ou compte avec le module Articles (bouton ✏️).
 // peutCompleter : admin, ou créateur de l'article (photo principale, code-barre, toute suppression).
 // Ajouter une photo est permis à tous ceux qui voient cet écran (module Articles) ; un non-admin
 // peut supprimer les photos qu'il a lui-même ajoutées (le serveur vérifie aussi).
@@ -1108,6 +1111,8 @@ function CarteArticle({ article, onPhotoMiseAJour, onCodeBarreGenere, onModifier
 
 function FormulaireArticle({ familles, articleEnEdition, onFermer, onFamillesMisesAJour, onCree, onModifie, onSyncArticle }) {
   const estEdition = !!articleEnEdition;
+  // Prix d'achat : modifiable par les admins seulement (à la création, tout le monde peut le saisir).
+  const estAdminForm = getUtilisateur()?.role === 'ADMIN';
 
   const [designation, setDesignation] = useState(articleEnEdition?.designation || '');
   const [codeBarre, setCodeBarre] = useState(articleEnEdition?.codeBarre || '');
@@ -1341,7 +1346,7 @@ function FormulaireArticle({ familles, articleEnEdition, onFermer, onFamillesMis
           designation,
           familleId,
           sousFamilleId,
-          prixAchat: prixAchat !== '' ? Number(prixAchat) : 0,
+          ...(estAdminForm ? { prixAchat: prixAchat !== '' ? Number(prixAchat) : 0 } : {}),
           prixVente: Number(prixVente),
           prixPromo: prixPromo !== '' ? Number(prixPromo) : null,
           seuilAlerte: Number(seuilAlerte),
@@ -1667,10 +1672,12 @@ function FormulaireArticle({ familles, articleEnEdition, onFermer, onFamillesMis
           </div>
         )}
 
-        <label style={styles.champLabel}>
-          Prix d'achat
-          <input type="number" style={styles.champInput} value={prixAchat} onChange={(e) => setPrixAchat(e.target.value)} />
-        </label>
+        {(!estEdition || estAdminForm) && (
+          <label style={styles.champLabel}>
+            Prix d'achat
+            <input type="number" style={styles.champInput} value={prixAchat} onChange={(e) => setPrixAchat(e.target.value)} />
+          </label>
+        )}
 
         <label style={styles.champLabel}>
           Prix de vente *

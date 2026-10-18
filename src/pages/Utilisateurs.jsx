@@ -342,6 +342,7 @@ function PanneauRapportActivite({ utilisateur, onFermer }) {
             <div style={styles.grilleResume}>
               <CarteResume label="Articles créés" valeur={rapport.resume.nbArticlesCrees} section="articlesCrees" sectionOuverte={sectionOuverte} setSectionOuverte={setSectionOuverte} />
               <CarteResume label="Prix modifiés" valeur={rapport.resume.nbPrixModifies} section="modificationsPrix" sectionOuverte={sectionOuverte} setSectionOuverte={setSectionOuverte} />
+              <CarteResume label="Fiches modifiées" valeur={rapport.resume.nbFichesModifiees} section="fichesModifiees" sectionOuverte={sectionOuverte} setSectionOuverte={setSectionOuverte} />
               <CarteResume label="Réceptions" valeur={rapport.resume.nbReceptions} section="receptions" sectionOuverte={sectionOuverte} setSectionOuverte={setSectionOuverte} sousTexte={`${rapport.resume.quantiteTotaleReceptionnee} unité(s) reçue(s)`} />
               <CarteResume label="Corrections d'inventaire" valeur={rapport.resume.nbCorrectionsInventaire} section="correctionsInventaire" sectionOuverte={sectionOuverte} setSectionOuverte={setSectionOuverte} />
               <CarteResume label="Transferts" valeur={rapport.resume.nbTransferts} section="transferts" sectionOuverte={sectionOuverte} setSectionOuverte={setSectionOuverte} />
@@ -362,6 +363,16 @@ function PanneauRapportActivite({ utilisateur, onFermer }) {
                       Achat {Number(a.prixAchat ?? 0).toLocaleString('fr-FR')} F · Vente {Number(a.prixVente).toLocaleString('fr-FR')} F
                       {' — '}{new Date(a.createdAt).toLocaleString('fr-FR')}
                     </span>
+                  </div>
+                ))}
+              </ListeDetail>
+            )}
+            {sectionOuverte === 'fichesModifiees' && (
+              <ListeDetail titre="Fiches articles modifiées">
+                {rapport.detail.fichesModifiees.map((m, i) => (
+                  <div key={i} style={styles.ligneDetail}>
+                    <span>{m.description}</span>
+                    <span>{new Date(m.createdAt).toLocaleDateString('fr-FR')}</span>
                   </div>
                 ))}
               </ListeDetail>

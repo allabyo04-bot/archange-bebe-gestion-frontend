@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { appelApi, getUtilisateur } from '../lib/api';
 import { diffuserEtatPanier, diffuserVenteValidee, ecouterCanal } from '../lib/broadcast';
+import Vignette from '../lib/Vignette';
 
 const ONGLETS = [
   { id: 'nouvelle', label: 'Nouvelle vente' },
@@ -189,6 +190,13 @@ export default function Ventes() {
   const finPanierRef = useRef(null);
   const [filtrePanier, setFiltrePanier] = useState('');
   const [resultats, setResultats] = useState([]);
+  // Petites photos des articles côté caisse. Un interrupteur permet de les couper en un clic
+  // si la caisse devait ralentir (choix mémorisé sur ce poste).
+  const [afficherVignettes, setAfficherVignettes] = useState(() => localStorage.getItem('archange_vignettes') !== 'non');
+  function changerAffichageVignettes(valeur) {
+    setAfficherVignettes(valeur);
+    localStorage.setItem('archange_vignettes', valeur ? 'oui' : 'non');
+  }
   const [erreurRecherche, setErreurRecherche] = useState('');
   const [rechercheEnCours, setRechercheEnCours] = useState(false);
   const [remisePourcent, setRemisePourcent] = useState('');
@@ -636,7 +644,7 @@ export default function Ventes() {
           prixUnitaire: Number(article.prixVente),
           quantite: 1,
           stockDispo: article.stockLieu ?? article.stockActuel,
-          photoUrl: article.photoUrl || null,
+          photoUrl: article.photoUrl || article.photos?.[0]?.url || null,
         },
       ];
     });
@@ -1524,6 +1532,15 @@ export default function Ventes() {
                   </button>
                 </form>
 
+                <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--brown-soft)', margin: '2px 0 6px' }}>
+                  <input
+                    type="checkbox"
+                    checked={afficherVignettes}
+                    onChange={(e) => changerAffichageVignettes(e.target.checked)}
+                  />
+                  Afficher les photos des articles
+                </label>
+
                 {erreurRecherche && <p style={{ color: 'var(--error)', fontSize: 13 }}>{erreurRecherche}</p>}
 
                 {resultats.length > 0 && (
@@ -1536,10 +1553,13 @@ export default function Ventes() {
                           onClick={() => choisirResultat(article)}
                           style={styles.itemResultat}
                         >
-                          <div>
-                            <div style={{ fontWeight: 600 }}>{article.designation}</div>
-                            <div style={stock > 0 ? { fontSize: 12, color: 'var(--brown-soft)' } : styles.badgePasDeStock}>
-                              {stock > 0 ? `Stock boutique : ${stock}` : '⚠️ Pas de stock dans cette boutique'}
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                            {afficherVignettes && <Vignette url={article.photoUrl} taille={44} />}
+                            <div>
+                              <div style={{ fontWeight: 600 }}>{article.designation}</div>
+                              <div style={stock > 0 ? { fontSize: 12, color: 'var(--brown-soft)' } : styles.badgePasDeStock}>
+                                {stock > 0 ? `Stock boutique : ${stock}` : '⚠️ Pas de stock dans cette boutique'}
+                              </div>
                             </div>
                           </div>
                           <div style={{ fontWeight: 700, color: 'var(--gold-deep)' }}>
@@ -1582,6 +1602,7 @@ export default function Ventes() {
                     const stockRestant = ligne.stockDispo != null ? ligne.stockDispo - ligne.quantite : null;
                     return (
                       <div key={ligne.articleId} style={styles.ligneAmpanier}>
+                        {afficherVignettes && <Vignette url={ligne.photoUrl} taille={44} />}
                         <div style={{ flex: 1 }}>
                           <div style={{ fontWeight: 600, fontSize: 13 }}>{ligne.designation}</div>
                           <div style={{ fontSize: 12, color: 'var(--brown-soft)' }}>

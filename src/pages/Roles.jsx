@@ -9,6 +9,7 @@ const MODULES = [
   { id: 'DEPENSES', label: 'Dépenses' },
   { id: 'RAPPORTS', label: 'Rapports' },
   { id: 'UTILISATEURS', label: 'Utilisateurs' },
+  { id: 'VENTE_GROS', label: 'Vente en gros' },
 ];
 
 export default function Roles() {
@@ -32,6 +33,8 @@ export default function Roles() {
   }
 
   function permissionActive(role, module) {
+    // Le rôle Administrateur a tous les droits (il n'a pas de ligne « Vente en gros » en base).
+    if (role.estAdmin) return true;
     return role.permissions.find((p) => p.module === module)?.actif || false;
   }
 

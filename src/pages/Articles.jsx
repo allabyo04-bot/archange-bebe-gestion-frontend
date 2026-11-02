@@ -424,6 +424,7 @@ export default function Articles() {
   }
 
   const [articleAffiche, setArticleAffiche] = useState(null);
+  const [panneauGrosOuvert, setPanneauGrosOuvert] = useState(false);
 
   return (
     <div style={styles.page}>
@@ -441,6 +442,11 @@ export default function Articles() {
           {estAdmin && (
             <button onClick={() => navigate('/familles')} style={styles.boutonRetour}>
               Familles &amp; sous-familles
+            </button>
+          )}
+          {estAdmin && (
+            <button onClick={() => setPanneauGrosOuvert(true)} style={styles.boutonRetour}>
+              Calculer les prix de gros
             </button>
           )}
           <button onClick={ouvrirPanneauReimpression} style={styles.boutonRetour}>
@@ -490,6 +496,10 @@ export default function Articles() {
         </div>
       )}
 
+      {panneauGrosOuvert && (
+        <PanneauPrixGros onFermer={() => setPanneauGrosOuvert(false)} onApplique={chargerDonnees} />
+      )}
+
       {articleAffiche && (
         <div style={styles.superposition} onClick={() => setArticleAffiche(null)}>
           <div style={styles.panneauConsultation} onClick={(e) => e.stopPropagation()}>
@@ -511,6 +521,9 @@ export default function Articles() {
                 <tr><td style={styles.libelleConsultation}>Famille</td><td>{articleAffiche.famille?.nom || '—'}</td></tr>
                 <tr><td style={styles.libelleConsultation}>Sous-famille</td><td>{articleAffiche.sousFamille?.nom || '—'}</td></tr>
                 <tr><td style={styles.libelleConsultation}>Prix de vente</td><td>{Number(articleAffiche.prixVente).toLocaleString('fr-FR')} F</td></tr>
+                {'prixGros' in articleAffiche && (
+                  <tr><td style={styles.libelleConsultation}>Prix de gros</td><td>{articleAffiche.prixGros != null ? `${Number(articleAffiche.prixGros).toLocaleString('fr-FR')} F` : '—'}</td></tr>
+                )}
                 {estAdmin && (
                   <tr><td style={styles.libelleConsultation}>Prix d'achat</td><td>{articleAffiche.prixAchat != null ? `${Number(articleAffiche.prixAchat).toLocaleString('fr-FR')} F` : '—'}</td></tr>
                 )}
@@ -941,6 +954,133 @@ export default function Articles() {
 // peutCompleter : admin, ou créateur de l'article (photo principale, code-barre, toute suppression).
 // Ajouter une photo est permis à tous ceux qui voient cet écran (module Articles) ; un non-admin
 // peut supprimer les photos qu'il a lui-même ajoutées (le serveur vérifie aussi).
+// Calcul des prix de gros en une fois : prix d'achat + un pourcentage, arrondi, toujours
+// strictement sous le prix de vente. On voit d'abord un APERÇU (rien n'est enregistré),
+// puis on applique. Réservé aux administrateurs (le prix d'achat leur est réservé).
+function PanneauPrixGros({ onFermer, onApplique }) {
+  const [pourcentage, setPourcentage] = useState('20');
+  const [arrondi, setArrondi] = useState('50');
+  const [portee, setPortee] = useState('sans_prix_gros');
+  const [apercu, setApercu] = useState(null);
+  const [termine, setTermine] = useState(null);
+  const [enCours, setEnCours] = useState(false);
+  const [erreur, setErreur] = useState('');
+
+  const corps = (appliquer) => ({ pourcentage: Number(pourcentage), arrondi: Number(arrondi), portee, appliquer });
+  const exemple = Math.round((1000 * (1 + Number(pourcentage) / 100)) / Number(arrondi)) * Number(arrondi);
+
+  // Changer un réglage rend l'aperçu précédent caduc.
+  function changer(setter) {
+    return (e) => { setter(e.target.value); setApercu(null); setTermine(null); };
+  }
+
+  async function voirApercu() {
+    setErreur(''); setTermine(null); setEnCours(true);
+    try {
+      setApercu(await appelApi('POST', '/articles/prix-gros/calculer', corps(false)));
+    } catch (err) {
+      setErreur(err.message); setApercu(null);
+    } finally {
+      setEnCours(false);
+    }
+  }
+
+  async function appliquer() {
+    setErreur(''); setEnCours(true);
+    try {
+      const resultat = await appelApi('POST', '/articles/prix-gros/calculer', corps(true));
+      setTermine(resultat.appliques);
+      setApercu(null);
+      onApplique();
+    } catch (err) {
+      setErreur(err.message);
+    } finally {
+      setEnCours(false);
+    }
+  }
+
+  const f = (n) => `${Number(n).toLocaleString('fr-FR')} F`;
+
+  return (
+    <div style={styles.superposition} onClick={onFermer}>
+      <div style={{ ...styles.panneauConsultation, maxWidth: 620 }} onClick={(e) => e.stopPropagation()}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+          <h2 style={styles.titreFormulaire}>Calculer les prix de gros</h2>
+          <button onClick={onFermer} style={styles.boutonModifier}>✕</button>
+        </div>
+        <p style={{ fontSize: 13, color: 'var(--brown-soft)', marginTop: 0 }}>
+          Prix de gros = prix d'achat + un pourcentage, toujours <strong>inférieur au prix de vente</strong>.
+          Un article sans prix d'achat, ou dont le résultat ne serait pas inférieur au prix de vente, est ignoré.
+        </p>
+
+        <label style={styles.champLabel}>
+          Pourcentage au-dessus du prix d'achat (%)
+          <input type="number" min="1" style={styles.champInput} value={pourcentage} onChange={changer(setPourcentage)} />
+          <span style={{ fontSize: 12, fontWeight: 400, color: 'var(--brown-soft)' }}>
+            Exemple : un article acheté 1 000 F donne {f(exemple)}.
+          </span>
+        </label>
+        <label style={styles.champLabel}>
+          Arrondir au multiple de
+          <select style={styles.champInput} value={arrondi} onChange={changer(setArrondi)}>
+            {[1, 5, 10, 25, 50, 100].map((n) => <option key={n} value={n}>{n} F</option>)}
+          </select>
+        </label>
+        <label style={styles.champLabel}>
+          Articles concernés
+          <select style={styles.champInput} value={portee} onChange={changer(setPortee)}>
+            <option value="sans_prix_gros">Seulement ceux qui n'ont pas encore de prix de gros</option>
+            <option value="tous">Tous (remplace les prix de gros déjà saisis)</option>
+          </select>
+        </label>
+
+        {erreur && <p style={{ color: 'var(--error)', fontSize: 13 }}>{erreur}</p>}
+        {termine !== null && (
+          <p style={{ color: '#1E6B36', fontWeight: 700 }}>Terminé : {termine} article(s) mis à jour.</p>
+        )}
+
+        <button onClick={voirApercu} disabled={enCours} style={{ ...styles.boutonAjouter, marginTop: 8 }}>
+          {enCours && !apercu ? 'Calcul…' : 'Voir l\'aperçu (rien n\'est enregistré)'}
+        </button>
+
+        {apercu && (
+          <div style={{ marginTop: 14 }}>
+            <p style={{ fontWeight: 700, margin: '0 0 6px' }}>
+              {apercu.aMettreAJour} article(s) seront mis à jour sur {apercu.resume.examines} examinés.
+            </p>
+            <ul style={{ fontSize: 12.5, color: 'var(--brown-soft)', margin: '0 0 10px', paddingLeft: 18 }}>
+              {apercu.resume.dejaRenseignes > 0 && <li>{apercu.resume.dejaRenseignes} ont déjà un prix de gros (non touchés)</li>}
+              {apercu.resume.sansPrixAchat > 0 && <li>{apercu.resume.sansPrixAchat} ignorés : pas de prix d'achat renseigné</li>}
+              {apercu.resume.nonInferieurs > 0 && <li>{apercu.resume.nonInferieurs} ignorés : le prix calculé ne serait pas inférieur au prix de vente</li>}
+              {apercu.resume.inchanges > 0 && <li>{apercu.resume.inchanges} déjà à ce prix (inchangés)</li>}
+            </ul>
+
+            {apercu.exemples.length > 0 && (
+              <div style={{ maxHeight: 220, overflowY: 'auto', marginBottom: 10 }}>
+                {apercu.exemples.map((l) => (
+                  <div key={l.id} style={{ display: 'flex', justifyContent: 'space-between', gap: 10, fontSize: 12.5, padding: '5px 0', borderBottom: '1px solid var(--cream-deep)' }}>
+                    <span>{l.designation}</span>
+                    <span style={{ whiteSpace: 'nowrap' }}>
+                      vente {f(l.prixVente)} → gros <strong>{f(l.nouveau)}</strong>
+                    </span>
+                  </div>
+                ))}
+                {apercu.aMettreAJour > apercu.exemples.length && (
+                  <p style={{ fontSize: 12, color: 'var(--brown-soft)' }}>… et {apercu.aMettreAJour - apercu.exemples.length} autres.</p>
+                )}
+              </div>
+            )}
+
+            <button onClick={appliquer} disabled={enCours || apercu.aMettreAJour === 0} style={styles.boutonAjouter}>
+              {enCours ? 'Application…' : `Appliquer à ${apercu.aMettreAJour} article(s)`}
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function CarteArticle({ article, onPhotoMiseAJour, onCodeBarreGenere, onModifier, onVoir, peutModifier = true, peutCompleter = true, utilisateurId }) {
   const peutSupprimerPhoto = (photo) => peutCompleter || (utilisateurId != null && photo.ajouteParId === utilisateurId);
   const [envoiEnCours, setEnvoiEnCours] = useState(false);
@@ -1085,6 +1225,9 @@ function CarteArticle({ article, onPhotoMiseAJour, onCodeBarreGenere, onModifier
         </div>
         <div style={styles.reference}>{article.reference}</div>
         <div style={styles.prix}>{Number(article.prixVente).toLocaleString('fr-FR')} F</div>
+        {article.prixGros != null && (
+          <div style={styles.prixGros}>Gros : {Number(article.prixGros).toLocaleString('fr-FR')} F</div>
+        )}
         <div style={styles.stock}>
           Stock : {article.stockActuel}
           {article.stockActuel <= article.seuilAlerte && (
@@ -1121,6 +1264,8 @@ function FormulaireArticle({ familles, articleEnEdition, onFermer, onFamillesMis
   const [sousFamilleId, setSousFamilleId] = useState(articleEnEdition?.sousFamilleId ? String(articleEnEdition.sousFamilleId) : '');
   const [prixAchat, setPrixAchat] = useState(articleEnEdition?.prixAchat ?? '');
   const [prixVente, setPrixVente] = useState(articleEnEdition?.prixVente ?? '');
+  const [prixGros, setPrixGros] = useState(articleEnEdition?.prixGros ?? '');
+  const prixGrosInvalide = prixGros !== '' && prixVente !== '' && Number(prixGros) >= Number(prixVente);
   const [prixPromo, setPrixPromo] = useState(articleEnEdition?.prixPromo ?? '');
   const [seuilAlerte, setSeuilAlerte] = useState(articleEnEdition ? String(articleEnEdition.seuilAlerte) : '5');
   const [description, setDescription] = useState(articleEnEdition?.description || '');
@@ -1338,6 +1483,10 @@ function FormulaireArticle({ familles, articleEnEdition, onFermer, onFamillesMis
       setErreur('Désignation, famille, sous-famille et prix de vente sont requis.');
       return;
     }
+    if (prixGrosInvalide) {
+      setErreur('Le prix de gros doit être inférieur au prix de vente.');
+      return;
+    }
 
     setEnvoiEnCours(true);
     try {
@@ -1348,6 +1497,7 @@ function FormulaireArticle({ familles, articleEnEdition, onFermer, onFamillesMis
           sousFamilleId,
           ...(estAdminForm ? { prixAchat: prixAchat !== '' ? Number(prixAchat) : 0 } : {}),
           prixVente: Number(prixVente),
+          prixGros: prixGros !== '' ? Number(prixGros) : null,
           prixPromo: prixPromo !== '' ? Number(prixPromo) : null,
           seuilAlerte: Number(seuilAlerte),
           description,
@@ -1362,6 +1512,7 @@ function FormulaireArticle({ familles, articleEnEdition, onFermer, onFamillesMis
           sousFamilleId,
           prixAchat: prixAchat ? Number(prixAchat) : 0,
           prixVente: Number(prixVente),
+          ...(prixGros !== '' ? { prixGros: Number(prixGros) } : {}),
           seuilAlerte: Number(seuilAlerte),
           description,
         });
@@ -1684,6 +1835,22 @@ function FormulaireArticle({ familles, articleEnEdition, onFermer, onFamillesMis
           <input type="number" style={styles.champInput} value={prixVente} onChange={(e) => setPrixVente(e.target.value)} />
         </label>
 
+        <label style={styles.champLabel}>
+          Prix de gros (facultatif)
+          <input
+            type="number"
+            style={styles.champInput}
+            value={prixGros}
+            onChange={(e) => setPrixGros(e.target.value)}
+            placeholder="Laisser vide s'il n'y a pas de prix de gros"
+          />
+          <span style={{ fontSize: 12, fontWeight: 400, color: prixGrosInvalide ? 'var(--error)' : 'var(--brown-soft)' }}>
+            {prixGrosInvalide
+              ? 'Le prix de gros doit être inférieur au prix de vente.'
+              : 'Prix des ventes en gros — toujours inférieur au prix de vente.'}
+          </span>
+        </label>
+
         {estEdition && (
           <label style={styles.champLabel}>
             Prix promo (site e-commerce uniquement — laisser vide pour aucune promotion)
@@ -1724,6 +1891,7 @@ const styles = {
   enTete: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24, flexWrap: 'wrap', gap: 12 },
   boutonRetour: { padding: '8px 14px', borderRadius: 8, border: '1px solid var(--gold-mid)', background: 'transparent', cursor: 'pointer', color: 'var(--brown-ink)' },
   titre: { fontFamily: 'var(--font-display)', margin: 0, fontSize: 28 },
+  prixGros: { fontSize: 12, fontWeight: 600, color: 'var(--gold-deep)' },
   boutonAjouter: { padding: '10px 18px', borderRadius: 8, border: 'none', background: 'var(--gold-deep)', color: 'var(--white)', cursor: 'pointer', fontWeight: 600 },
   superposition: {
     position: 'fixed', inset: 0, background: 'rgba(46, 26, 13, 0.5)', display: 'flex',

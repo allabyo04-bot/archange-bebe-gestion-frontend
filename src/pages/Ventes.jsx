@@ -23,7 +23,7 @@ const MODES_PAIEMENT = [
 // ------------------------------------------------------------
 // TICKET DE CAISSE
 // ------------------------------------------------------------
-function construireTicketHtml({ vente, panier, remise, totalNet, paiements, contributionAvoir, avoirReference, lieuNom, vendeurNom, estCredit, montantRestant }) {
+function construireTicketHtml({ vente, panier, remise, totalNet, paiements, contributionAvoir, avoirReference, lieuNom, vendeurNom, estCredit, montantRestant, tarifGros }) {
   const date = new Date(vente.createdAt || Date.now());
   const dateTexte = date.toLocaleDateString('fr-FR');
   const heureTexte = date.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
@@ -74,6 +74,7 @@ function construireTicketHtml({ vente, panier, remise, totalNet, paiements, cont
     <div class="sous-titre">${lieuNom || ''}</div>
     <div>${dateTexte} — ${heureTexte}</div>
     <div>Ticket ${vente.numero}</div>
+    ${tarifGros ? '<div style="font-weight:800">TARIF DE GROS</div>' : ''}
     ${vendeurNom ? `<div>Vendeur : ${vendeurNom}</div>` : ''}
   </div>
   <hr>
@@ -179,6 +180,9 @@ export default function Ventes() {
   const [searchParams, setSearchParams] = useSearchParams();
   const utilisateur = getUtilisateur();
   const estAdmin = utilisateur?.role === 'ADMIN';
+  // Droit « Vente en gros » (case de l'écran Rôles) ; un administrateur l'a toujours. Le serveur
+  // revérifie ce droit à chaque vente : ceci ne sert qu'à afficher ou non l'interrupteur.
+  const peutVendreEnGros = estAdmin || (utilisateur?.permissions || []).includes('VENTE_GROS');
   const [ongletActif, setOngletActif] = useState(searchParams.get('onglet') || 'nouvelle');
   const [filtrePeriodeHistorique, setFiltrePeriodeHistorique] = useState(searchParams.get('periode') || 'toutes');
   const [filtreRemiseUniquement, setFiltreRemiseUniquement] = useState(searchParams.get('remise') === '1');
@@ -189,6 +193,7 @@ export default function Ventes() {
   const minuteurScanRef = useRef(null);
   const finPanierRef = useRef(null);
   const [filtrePanier, setFiltrePanier] = useState('');
+  const [modeGros, setModeGros] = useState(false);
   const [resultats, setResultats] = useState([]);
   // Petites photos des articles côté caisse. Un interrupteur permet de les couper en un clic
   // si la caisse devait ralentir (choix mémorisé sur ce poste).
@@ -641,13 +646,27 @@ export default function Ventes() {
           articleId: article.id,
           designation: article.designation,
           reference: article.reference || '',
-          prixUnitaire: Number(article.prixVente),
+          prixVente: Number(article.prixVente),
+          prixGros: article.prixGros != null ? Number(article.prixGros) : null,
+          prixUnitaire: modeGros && article.prixGros != null ? Number(article.prixGros) : Number(article.prixVente),
           quantite: 1,
           stockDispo: article.stockLieu ?? article.stockActuel,
           photoUrl: article.photoUrl || article.photos?.[0]?.url || null,
         },
       ];
     });
+  }
+
+  // Prix d'une ligne selon le tarif : en gros, le prix de gros s'il existe, sinon le prix normal
+  // (la ligne est alors signalée). Les lignes anciennes, sans prixVente, gardent leur prix.
+  function prixLigneSelonTarif(ligne, gros) {
+    if (gros && ligne.prixGros != null) return Number(ligne.prixGros);
+    return Number(ligne.prixVente ?? ligne.prixUnitaire);
+  }
+
+  function changerModeGros(valeur) {
+    setModeGros(valeur);
+    setPanier((prec) => prec.map((l) => ({ ...l, prixUnitaire: prixLigneSelonTarif(l, valeur) })));
   }
 
   function changerQuantite(articleId, delta) {
@@ -702,6 +721,7 @@ export default function Ventes() {
   }
 
   function reinitialiserVente() {
+    setModeGros(false);
     setPanier([]);
     setFiltrePanier('');
     setRemisePourcent('');
@@ -743,7 +763,9 @@ export default function Ventes() {
   // Diffuse en temps réel le panier de la vente en cours vers l'écran client (double
   // écran caisse), à chaque ajout/retrait d'article ou changement de remise.
   useEffect(() => {
-    diffuserEtatPanier({ panier, remise });
+    // Seuls les prix appliqués partent vers l'écran client : jamais le prix de gros ni le prix
+    // normal « de côté » des lignes.
+    diffuserEtatPanier({ panier: panier.map(({ prixGros, prixVente, ...ligne }) => ligne), remise });
   }, [panier, remise]);
 
   useEffect(() => {
@@ -780,7 +802,7 @@ export default function Ventes() {
     try {
       await appelApi('POST', '/ventes-en-attente', {
         lieuId: Number(lieuId),
-        donnees: { panier, remisePourcent, motifRemise, lieuId, vendeurId, clientId, typeVente },
+        donnees: { panier, remisePourcent, motifRemise, lieuId, vendeurId, clientId, typeVente, tarif: modeGros ? 'GROS' : 'DETAIL' },
       });
       rafraichirVentesEnAttente();
       reinitialiserVente();
@@ -794,7 +816,11 @@ export default function Ventes() {
     const vente = ventesEnAttente.find((v) => v.id === id);
     if (!vente) return;
 
-    setPanier(vente.panier);
+    // Une vente mise en attente en gros n'est reprise en gros que par quelqu'un qui en a le droit ;
+    // sinon on la remet aux prix normaux (le serveur l'aurait de toute façon refusée).
+    const reprendreEnGros = vente.tarif === 'GROS' && peutVendreEnGros;
+    setModeGros(reprendreEnGros);
+    setPanier(vente.panier.map((l) => ({ ...l, prixUnitaire: prixLigneSelonTarif(l, reprendreEnGros) })));
     setRemisePourcent(vente.remisePourcent ?? '');
     setMotifRemise(vente.motifRemise);
     setLieuId(vente.lieuId);
@@ -823,6 +849,7 @@ export default function Ventes() {
       vendeurId: vendeurId ? Number(vendeurId) : null,
       clientId: idClientFinal,
       typeVente: estCredit ? 'CREDIT' : 'COMPTANT',
+      tarif: modeGros ? 'GROS' : undefined,
       remisePourcent: pourcentageRemise > 0 ? pourcentageRemise : undefined,
       motifRemise: motifRemise || undefined,
       remisePin: pinAUtiliser || undefined,
@@ -851,6 +878,7 @@ export default function Ventes() {
       vendeurNom,
       estCredit,
       montantRestant: resteAPayer,
+      tarifGros: vente.tarif === 'GROS',
     });
     setDernierTicketHtml(ticketHtml);
     imprimerTicketDepuisHtml(ticketHtml);
@@ -1162,7 +1190,7 @@ export default function Ventes() {
                 {demandesAnnulation.map((v) => (
                   <div key={v.id} style={{ ...styles.carteAttente, background: 'var(--white)', marginTop: 8 }}>
                     <div style={styles.enTeteCarteAttente}>
-                      <span style={{ fontWeight: 700 }}>{v.numero} — {Number(v.totalNet).toLocaleString('fr-FR')} F</span>
+                      <span style={{ fontWeight: 700 }}>{v.numero} — {Number(v.totalNet).toLocaleString('fr-FR')} F{v.tarif === 'GROS' && <span style={styles.badgeGros}>Gros</span>}</span>
                       <span style={styles.texteMuet}>{v.demandeurAnnulation?.nomComplet}</span>
                     </div>
                     <div style={styles.texteMuet}>
@@ -1198,7 +1226,7 @@ export default function Ventes() {
               {ventesHistoriqueAffichees.map((v) => (
                 <div key={v.id} style={styles.carteAttente}>
                   <div style={styles.enTeteCarteAttente}>
-                    <span style={{ fontWeight: 700 }}>{v.numero} — {Number(v.totalNet).toLocaleString('fr-FR')} F</span>
+                    <span style={{ fontWeight: 700 }}>{v.numero} — {Number(v.totalNet).toLocaleString('fr-FR')} F{v.tarif === 'GROS' && <span style={styles.badgeGros}>Gros</span>}</span>
                     <span style={styles.texteMuet}>{new Date(v.createdAt).toLocaleString('fr-FR')}</span>
                   </div>
                   <div style={styles.texteMuet}>
@@ -1562,8 +1590,10 @@ export default function Ventes() {
                               </div>
                             </div>
                           </div>
-                          <div style={{ fontWeight: 700, color: 'var(--gold-deep)' }}>
-                            {Number(article.prixVente).toLocaleString('fr-FR')} F
+                          <div style={{ fontWeight: 700, color: 'var(--gold-deep)', textAlign: 'right' }}>
+                            {modeGros && article.prixGros != null
+                              ? <>{Number(article.prixGros).toLocaleString('fr-FR')} F <span style={styles.badgeGros}>Gros</span></>
+                              : <>{Number(article.prixVente).toLocaleString('fr-FR')} F</>}
                           </div>
                         </button>
                       );
@@ -1577,6 +1607,18 @@ export default function Ventes() {
 
               <div style={styles.colonnePanier}>
                 <h3 style={styles.titreBloc}>Panier</h3>
+                {peutVendreEnGros && (
+                  <label style={{ ...styles.barreGros, ...(modeGros ? styles.barreGrosActive : {}) }}>
+                    <input type="checkbox" checked={modeGros} onChange={(e) => changerModeGros(e.target.checked)} />
+                    <strong>Vente en gros</strong>
+                    {modeGros && <span style={{ fontSize: 12 }}>— prix de gros appliqués</span>}
+                  </label>
+                )}
+                {modeGros && panier.some((l) => l.prixGros == null) && (
+                  <div style={styles.avertissementGros}>
+                    ⚠️ {panier.filter((l) => l.prixGros == null).length} article(s) sans prix de gros : le prix normal est appliqué.
+                  </div>
+                )}
                 {panier.length === 0 && <p style={styles.texteMuet}>Aucun article ajouté.</p>}
 
                 {panier.length > 4 && (
@@ -1607,6 +1649,9 @@ export default function Ventes() {
                           <div style={{ fontWeight: 600, fontSize: 13 }}>{ligne.designation}</div>
                           <div style={{ fontSize: 12, color: 'var(--brown-soft)' }}>
                             {ligne.reference ? `${ligne.reference} — ` : ''}{ligne.prixUnitaire.toLocaleString('fr-FR')} F × {ligne.quantite}
+                            {modeGros && (ligne.prixGros != null
+                              ? <span style={styles.badgeGros}>Prix de gros</span>
+                              : <span style={styles.badgeSansGros}>Pas de prix de gros — prix normal</span>)}
                           </div>
                           {stockRestant != null && (
                             <div style={stockRestant < 0 ? styles.badgeStockAlerte : styles.badgeStock}>
@@ -1904,6 +1949,11 @@ const styles = {
   boutonRecherche: { padding: '8px 14px', borderRadius: 8, border: 'none', background: 'var(--gold-deep)', color: 'var(--white)', cursor: 'pointer', fontWeight: 600 },
   listeResultats: { display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 400, overflowY: 'auto' },
   itemResultat: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 12px', borderRadius: 8, border: '1px solid var(--cream-deep)', background: 'transparent', cursor: 'pointer', textAlign: 'left' },
+  barreGros: { display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', margin: '0 0 8px', borderRadius: 8, border: '1px solid var(--cream-deep)', background: 'var(--white)', cursor: 'pointer', fontSize: 13 },
+  barreGrosActive: { background: '#FFF4D6', border: '1px solid var(--gold-deep)' },
+  avertissementGros: { background: '#FBE4E1', color: 'var(--error)', borderRadius: 8, padding: '6px 10px', fontSize: 12.5, fontWeight: 600, marginBottom: 8 },
+  badgeGros: { marginLeft: 6, fontSize: 11, fontWeight: 700, color: '#7A5B00', background: '#FFE9A8', padding: '2px 7px', borderRadius: 20 },
+  badgeSansGros: { marginLeft: 6, fontSize: 11, fontWeight: 700, color: 'var(--error)', background: '#FBE4E1', padding: '2px 7px', borderRadius: 20 },
   ligneAmpanier: { display: 'flex', alignItems: 'center', gap: 8, padding: '8px 0', borderBottom: '1px solid var(--cream-deep)' },
   controlesQuantite: { display: 'flex', alignItems: 'center', gap: 6 },
   boutonQte: { width: 24, height: 24, borderRadius: 6, border: '1px solid var(--gold-mid)', background: 'transparent', cursor: 'pointer' },

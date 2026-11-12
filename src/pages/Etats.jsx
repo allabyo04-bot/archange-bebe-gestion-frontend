@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { appelApi, getUtilisateur, telechargerFichierAvecAuth } from '../lib/api';
 import RaccourcisPeriode from '../lib/RaccourcisPeriode';
+import EtatCoordonnees from './EtatCoordonnees';
+import ClientsARelancer from './ClientsARelancer';
 
 function formatDate(d) {
   const annee = d.getFullYear();
@@ -74,9 +76,13 @@ export default function Etats() {
     { id: 'fermeture', label: 'Fermeture de caisse' },
     { id: 'fidelite', label: 'Récompenses fidélité' },
     { id: 'peremption', label: 'Péremption' },
+    ...(estAdmin ? [{ id: 'coordonnees', label: 'Collecte des coordonnées' }] : []),
+    ...(estAdmin ? [{ id: 'relance', label: 'Clients à relancer' }] : []),
   ];
 
-  const [ongletActif, setOngletActif] = useState('date');
+  const [searchParams] = useSearchParams();
+  // Ouverture directe d'un onglet depuis une autre page (ex. carte du tableau de bord : ?onglet=coordonnees).
+  const [ongletActif, setOngletActif] = useState(searchParams.get('onglet') || 'date');
   const [lieux, setLieux] = useState([]);
   const [lieuId, setLieuId] = useState(!estAdmin && utilisateur?.lieuId ? String(utilisateur.lieuId) : '');
 
@@ -128,7 +134,7 @@ export default function Etats() {
   }, []);
 
   async function chargerOnglet() {
-    if (['fermeture', 'fidelite', 'journal', 'peremption'].includes(ongletActif)) return;
+    if (['fermeture', 'fidelite', 'journal', 'peremption', 'coordonnees', 'relance'].includes(ongletActif)) return;
     const idRequete = ++compteurRequete.current;
     const ongletDemande = ongletActif;
     setChargement(true);
@@ -318,7 +324,7 @@ export default function Etats() {
         ))}
       </div>
 
-      {ongletActif === 'fidelite' ? (
+      {ongletActif === 'coordonnees' || ongletActif === 'relance' ? null : ongletActif === 'fidelite' ? (
         <div style={styles.blocFiltres}>
           <div style={styles.raccourcis}>
             {[
@@ -461,7 +467,11 @@ export default function Etats() {
         </div>
       )}
 
-      {ongletActif === 'fermeture' ? (
+      {ongletActif === 'coordonnees' ? (
+        <EtatCoordonnees />
+      ) : ongletActif === 'relance' ? (
+        <ClientsARelancer />
+      ) : ongletActif === 'fermeture' ? (
         <>
           {fermetureErreur && <div style={styles.bandeauErreur}>{fermetureErreur}</div>}
           {fermetureChargement && <p style={styles.texteMuet}>Chargement…</p>}

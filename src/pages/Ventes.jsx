@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { appelApi, getUtilisateur } from '../lib/api';
 import { diffuserEtatPanier, diffuserVenteValidee, ecouterCanal } from '../lib/broadcast';
 import Vignette from '../lib/Vignette';
+import { normaliserTelephone } from '../lib/telephone';
 
 const ONGLETS = [
   { id: 'nouvelle', label: 'Nouvelle vente' },
@@ -220,6 +221,12 @@ export default function Ventes() {
   // --- Client de la vente en cours ---
   const [clients, setClients] = useState([]);
   const [clientId, setClientId] = useState('');
+  // Règle « coordonnées obligatoires » (allumée par un administrateur) et dérogation choisie.
+  const [regleCoordonnees, setRegleCoordonnees] = useState({ obligatoire: false, motifs: [] });
+  const [sansCoordonnees, setSansCoordonnees] = useState(null); // { motif, detail } ou null
+  const [selecteurMotifOuvert, setSelecteurMotifOuvert] = useState(false);
+  const [motifChoisi, setMotifChoisi] = useState('');
+  const [detailMotif, setDetailMotif] = useState('');
   const [clientSearch, setClientSearch] = useState('');
   const [creationClientOuverte, setCreationClientOuverte] = useState(false);
   const [nouveauClientNom, setNouveauClientNom] = useState('');
@@ -695,6 +702,10 @@ export default function Ventes() {
       setErreurCreationClient('Le nom est requis.');
       return;
     }
+    if (regleCoordonnees.obligatoire && !normaliserTelephone(nouveauClientTel)) {
+      setErreurCreationClient('Numéro de téléphone requis : 10 chiffres (ex. 07 07 07 07 07). Les formats +225 et 00225 sont acceptés.');
+      return;
+    }
     setCreationClientEnCours(true);
     setErreurCreationClient('');
     try {
@@ -722,6 +733,10 @@ export default function Ventes() {
 
   function reinitialiserVente() {
     setModeGros(false);
+    setSansCoordonnees(null);
+    setSelecteurMotifOuvert(false);
+    setMotifChoisi('');
+    setDetailMotif('');
     setPanier([]);
     setFiltrePanier('');
     setRemisePourcent('');
@@ -850,6 +865,7 @@ export default function Ventes() {
       clientId: idClientFinal,
       typeVente: estCredit ? 'CREDIT' : 'COMPTANT',
       tarif: modeGros ? 'GROS' : undefined,
+      sansCoordonnees: coordonneesManquantes && sansCoordonnees ? sansCoordonnees : undefined,
       remisePourcent: pourcentageRemise > 0 ? pourcentageRemise : undefined,
       motifRemise: motifRemise || undefined,
       remisePin: pinAUtiliser || undefined,
@@ -888,6 +904,25 @@ export default function Ventes() {
     reinitialiserVente();
   }
 
+  // ---- Coordonnées du client ----
+  const clientActuel = clients.find((c) => String(c.id) === String(clientId));
+  const clientIdentifie = !!clientActuel && !clientActuel.estComptoir && normaliserTelephone(clientActuel.telephone) !== null;
+  const coordonneesManquantes = regleCoordonnees.obligatoire && !clientIdentifie;
+
+  useEffect(() => {
+    appelApi('GET', '/clients/regle-coordonnees').then(setRegleCoordonnees).catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    // Dès qu'un client identifié est choisi, la dérogation n'a plus lieu d'être.
+    if (clientIdentifie) { setSansCoordonnees(null); setSelecteurMotifOuvert(false); }
+  }, [clientIdentifie]);
+
+  function confirmerSansCoordonnees() {
+    setSansCoordonnees({ motif: motifChoisi, detail: detailMotif.trim() || undefined });
+    setSelecteurMotifOuvert(false);
+  }
+
   async function validerVente() {
     setErreurVente('');
 
@@ -901,6 +936,10 @@ export default function Ventes() {
     }
     if (!vendeurId) {
       setErreurVente('Sélectionnez un vendeur.');
+      return;
+    }
+    if (coordonneesManquantes && !sansCoordonnees) {
+      setErreurVente('Coordonnées du client requises : choisissez ou créez le client (nom et téléphone), ou cliquez sur « Vendre sans coordonnées ».');
       return;
     }
     if (!estCredit && paiements.length === 0 && contributionAvoir === 0) {
@@ -1190,7 +1229,7 @@ export default function Ventes() {
                 {demandesAnnulation.map((v) => (
                   <div key={v.id} style={{ ...styles.carteAttente, background: 'var(--white)', marginTop: 8 }}>
                     <div style={styles.enTeteCarteAttente}>
-                      <span style={{ fontWeight: 700 }}>{v.numero} — {Number(v.totalNet).toLocaleString('fr-FR')} F{v.tarif === 'GROS' && <span style={styles.badgeGros}>Gros</span>}</span>
+                      <span style={{ fontWeight: 700 }}>{v.numero} — {Number(v.totalNet).toLocaleString('fr-FR')} F{v.tarif === 'GROS' && <span style={styles.badgeGros}>Gros</span>}{v.sansCoordonnees && <span style={styles.badgeSansCoord}>Sans coordonnées</span>}</span>
                       <span style={styles.texteMuet}>{v.demandeurAnnulation?.nomComplet}</span>
                     </div>
                     <div style={styles.texteMuet}>
@@ -1226,7 +1265,7 @@ export default function Ventes() {
               {ventesHistoriqueAffichees.map((v) => (
                 <div key={v.id} style={styles.carteAttente}>
                   <div style={styles.enTeteCarteAttente}>
-                    <span style={{ fontWeight: 700 }}>{v.numero} — {Number(v.totalNet).toLocaleString('fr-FR')} F{v.tarif === 'GROS' && <span style={styles.badgeGros}>Gros</span>}</span>
+                    <span style={{ fontWeight: 700 }}>{v.numero} — {Number(v.totalNet).toLocaleString('fr-FR')} F{v.tarif === 'GROS' && <span style={styles.badgeGros}>Gros</span>}{v.sansCoordonnees && <span style={styles.badgeSansCoord}>Sans coordonnées</span>}</span>
                     <span style={styles.texteMuet}>{new Date(v.createdAt).toLocaleString('fr-FR')}</span>
                   </div>
                   <div style={styles.texteMuet}>
@@ -1490,9 +1529,68 @@ export default function Ventes() {
                     )}
                   </>
                 )}
-                <p style={{ ...styles.texteMuet, marginTop: 4 }}>
-                  Laissé vide, la vente est associée à "Client Comptoir".
-                </p>
+                {!regleCoordonnees.obligatoire && (
+                  <p style={{ ...styles.texteMuet, marginTop: 4 }}>
+                    Laissé vide, la vente est associée à "Client Comptoir".
+                  </p>
+                )}
+                {regleCoordonnees.obligatoire && clientIdentifie && (
+                  <p style={{ ...styles.texteMuet, marginTop: 4, color: '#1E6B36', fontWeight: 600 }}>
+                    ✓ Client identifié (nom et téléphone).
+                  </p>
+                )}
+                {coordonneesManquantes && (
+                  <div style={styles.coordManquantes}>
+                    <strong>Coordonnées requises</strong>
+                    <div style={{ fontSize: 12.5, margin: '2px 0 6px' }}>
+                      Choisissez ou créez le client (nom et téléphone).
+                      {clientActuel && !clientActuel.estComptoir && !clientActuel.telephone
+                        ? " Le client choisi n'a pas de numéro : ajoutez-le dans sa fiche (menu Clients)."
+                        : ''}
+                    </div>
+                    {sansCoordonnees ? (
+                      <div style={{ fontSize: 12.5 }}>
+                        <span style={styles.badgeSansCoord}>Vente sans coordonnées</span>{' '}
+                        {regleCoordonnees.motifs.find((m) => m.code === sansCoordonnees.motif)?.libelle}
+                        {sansCoordonnees.detail ? ` — ${sansCoordonnees.detail}` : ''}{' '}
+                        <button type="button" onClick={() => setSansCoordonnees(null)} style={styles.boutonRetirer}>Annuler</button>
+                      </div>
+                    ) : selecteurMotifOuvert ? (
+                      <div style={{ fontSize: 13 }}>
+                        <div style={{ fontWeight: 600, marginBottom: 4 }}>Pourquoi sans coordonnées ?</div>
+                        {regleCoordonnees.motifs.map((m) => (
+                          <label key={m.code} style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 3, cursor: 'pointer' }}>
+                            <input type="radio" name="motifSansCoordonnees" checked={motifChoisi === m.code} onChange={() => setMotifChoisi(m.code)} />
+                            {m.libelle}
+                          </label>
+                        ))}
+                        {motifChoisi === 'AUTRE' && (
+                          <input
+                            style={{ ...styles.champInput, marginTop: 4, width: '100%' }}
+                            placeholder="Précisez (3 caractères au moins)"
+                            value={detailMotif}
+                            onChange={(e) => setDetailMotif(e.target.value)}
+                          />
+                        )}
+                        <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+                          <button type="button" onClick={() => setSelecteurMotifOuvert(false)} style={styles.boutonRetirer}>Retour</button>
+                          <button
+                            type="button"
+                            onClick={confirmerSansCoordonnees}
+                            disabled={!motifChoisi || (motifChoisi === 'AUTRE' && detailMotif.trim().length < 3)}
+                            style={styles.boutonAjouterPaiement}
+                          >
+                            Confirmer
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <button type="button" onClick={() => setSelecteurMotifOuvert(true)} style={styles.boutonAjouterPaiement}>
+                        Vendre sans coordonnées
+                      </button>
+                    )}
+                  </div>
+                )}
               </div>
 
               <div style={{ maxWidth: 340 }}>
@@ -1854,7 +1952,7 @@ export default function Ventes() {
                 />
               </label>
               <label style={styles.champLabel}>
-                Téléphone
+                Téléphone{regleCoordonnees.obligatoire ? ' *' : ''}
                 <input
                   style={styles.champInput}
                   value={nouveauClientTel}
@@ -1952,6 +2050,8 @@ const styles = {
   barreGros: { display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', margin: '0 0 8px', borderRadius: 8, border: '1px solid var(--cream-deep)', background: 'var(--white)', cursor: 'pointer', fontSize: 13 },
   barreGrosActive: { background: '#FFF4D6', border: '1px solid var(--gold-deep)' },
   avertissementGros: { background: '#FBE4E1', color: 'var(--error)', borderRadius: 8, padding: '6px 10px', fontSize: 12.5, fontWeight: 600, marginBottom: 8 },
+  coordManquantes: { background: '#FFF4D6', border: '1px solid var(--gold-deep)', borderRadius: 8, padding: '8px 10px', marginTop: 6, fontSize: 13 },
+  badgeSansCoord: { marginLeft: 6, fontSize: 11, fontWeight: 700, color: '#8A4B00', background: '#FFE1BD', padding: '2px 7px', borderRadius: 20 },
   badgeGros: { marginLeft: 6, fontSize: 11, fontWeight: 700, color: '#7A5B00', background: '#FFE9A8', padding: '2px 7px', borderRadius: 20 },
   badgeSansGros: { marginLeft: 6, fontSize: 11, fontWeight: 700, color: 'var(--error)', background: '#FBE4E1', padding: '2px 7px', borderRadius: 20 },
   ligneAmpanier: { display: 'flex', alignItems: 'center', gap: 8, padding: '8px 0', borderBottom: '1px solid var(--cream-deep)' },

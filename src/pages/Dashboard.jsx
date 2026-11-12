@@ -114,6 +114,24 @@ export default function Dashboard() {
                 <div style={{ fontSize: 24, fontWeight: 700 }}>{dashboard.inventairesAValider ?? 0}</div>
               </div>
             )}
+            {estAdmin && dashboard.coordonnees && (
+              <div
+                style={{
+                  background: dashboard.coordonnees.sansClient > 0 ? '#FCEBD0' : 'var(--cream-deep)',
+                  padding: 20, borderRadius: 12, cursor: 'pointer',
+                }}
+                onClick={() => navigate('/etats?onglet=coordonnees')}
+                title="Ventes du jour dont le client n'est pas identifié (nom et téléphone) — ouvre le rapport"
+              >
+                <div style={{ fontSize: 13, opacity: 0.7 }}>
+                  {dashboard.coordonnees.actif ? 'Ventes sans coordonnées (aujourd\'hui)' : 'Ventes sans client identifié (aujourd\'hui)'}
+                </div>
+                <div style={{ fontSize: 24, fontWeight: 700 }}>
+                  {dashboard.coordonnees.actif ? dashboard.coordonnees.derogations : dashboard.coordonnees.sansClient}
+                  <span style={{ fontSize: 14, fontWeight: 500, opacity: 0.7 }}> sur {dashboard.coordonnees.ventes}</span>
+                </div>
+              </div>
+            )}
             {estAdmin && (
               <>
                 <div style={{ background: 'var(--cream-deep)', padding: 20, borderRadius: 12 }}>

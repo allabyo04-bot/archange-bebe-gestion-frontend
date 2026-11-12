@@ -4,6 +4,7 @@ import { appelApi, getUtilisateur, telechargerFichierAvecAuth } from '../lib/api
 import RaccourcisPeriode from '../lib/RaccourcisPeriode';
 import EtatCoordonnees from './EtatCoordonnees';
 import ClientsARelancer from './ClientsARelancer';
+import ProgrammeFidelite from './ProgrammeFidelite';
 
 function formatDate(d) {
   const annee = d.getFullYear();
@@ -78,6 +79,7 @@ export default function Etats() {
     { id: 'peremption', label: 'Péremption' },
     ...(estAdmin ? [{ id: 'coordonnees', label: 'Collecte des coordonnées' }] : []),
     ...(estAdmin ? [{ id: 'relance', label: 'Clients à relancer' }] : []),
+    ...(estAdmin ? [{ id: 'programme', label: 'Programme de fidélité' }] : []),
   ];
 
   const [searchParams] = useSearchParams();
@@ -134,7 +136,7 @@ export default function Etats() {
   }, []);
 
   async function chargerOnglet() {
-    if (['fermeture', 'fidelite', 'journal', 'peremption', 'coordonnees', 'relance'].includes(ongletActif)) return;
+    if (['fermeture', 'fidelite', 'journal', 'peremption', 'coordonnees', 'relance', 'programme'].includes(ongletActif)) return;
     const idRequete = ++compteurRequete.current;
     const ongletDemande = ongletActif;
     setChargement(true);
@@ -324,7 +326,7 @@ export default function Etats() {
         ))}
       </div>
 
-      {ongletActif === 'coordonnees' || ongletActif === 'relance' ? null : ongletActif === 'fidelite' ? (
+      {ongletActif === 'coordonnees' || ongletActif === 'relance' || ongletActif === 'programme' ? null : ongletActif === 'fidelite' ? (
         <div style={styles.blocFiltres}>
           <div style={styles.raccourcis}>
             {[
@@ -471,6 +473,8 @@ export default function Etats() {
         <EtatCoordonnees />
       ) : ongletActif === 'relance' ? (
         <ClientsARelancer />
+      ) : ongletActif === 'programme' ? (
+        <ProgrammeFidelite />
       ) : ongletActif === 'fermeture' ? (
         <>
           {fermetureErreur && <div style={styles.bandeauErreur}>{fermetureErreur}</div>}

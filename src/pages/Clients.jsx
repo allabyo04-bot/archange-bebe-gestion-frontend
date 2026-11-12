@@ -105,6 +105,7 @@ export default function Clients() {
 
 function FicheClient({ clientId, onFermer, onModifie }) {
   const [client, setClient] = useState(null);
+  const [fid, setFid] = useState(null); // état du programme de fidélité paramétrable (si actif)
   const [chargement, setChargement] = useState(true);
   const [erreur, setErreur] = useState('');
   const [edition, setEdition] = useState(false);
@@ -128,6 +129,7 @@ function FicheClient({ clientId, onFermer, onModifie }) {
       })
       .catch((err) => setErreur(err.message))
       .finally(() => setChargement(false));
+    appelApi('GET', `/programme-fidelite/client/${clientId}`).then(setFid).catch(() => setFid(null));
   }
 
   async function enregistrer(e) {
@@ -164,6 +166,47 @@ function FicheClient({ clientId, onFermer, onModifie }) {
             <div style={styles.texteMuet}>{client.email || 'Email non renseigné'}</div>
             <button onClick={() => setEdition(true)} style={styles.boutonModifier}>✏️ Modifier</button>
 
+            {fid?.actif ? (
+              <div style={styles.carteFidelite}>
+                <div style={{ fontWeight: 700, marginBottom: 4 }}>
+                  Fidélité{fid.statut ? ` — ${fid.statut}` : ''}
+                </div>
+                {!fid.identifie && (
+                  <div style={styles.texteMuet}>
+                    Client non identifié : renseignez son nom et son téléphone pour que ses achats comptent.
+                  </div>
+                )}
+                <div style={styles.texteMuet}>
+                  Cumul courant : {Number(fid.cumulCourant).toLocaleString('fr-FR')} F · cumul à vie : {Number(fid.cumulTotal).toLocaleString('fr-FR')} F
+                </div>
+                {fid.bonusDisponible > 0 && (
+                  <div style={{ fontWeight: 700, color: '#1E6B36', marginTop: 4 }}>
+                    Bonus disponible : {Number(fid.bonusDisponible).toLocaleString('fr-FR')} F
+                  </div>
+                )}
+                {fid.prochainPalier && (
+                  <div style={styles.texteMuet}>
+                    Reste {Number(fid.prochainPalier.reste).toLocaleString('fr-FR')} F avant un bonus de {Number(fid.prochainPalier.bonus).toLocaleString('fr-FR')} F
+                  </div>
+                )}
+                {fid.statutSuivant && (
+                  <div style={styles.texteMuet}>
+                    Reste {Number(fid.statutSuivant.reste).toLocaleString('fr-FR')} F avant le statut « {fid.statutSuivant.nom} »
+                  </div>
+                )}
+                {fid.mouvements.length > 0 && (
+                  <div style={{ marginTop: 8 }}>
+                    <div style={{ fontWeight: 600, fontSize: 12.5, marginBottom: 2 }}>Derniers mouvements</div>
+                    {fid.mouvements.slice(0, 10).map((m) => (
+                      <div key={m.id} style={styles.texteMuet}>
+                        {new Date(m.date).toLocaleDateString('fr-FR')} — {{ ACHAT: 'Achat', BONUS_UTILISE: 'Bonus utilisé', REPRISE: 'Reprise', AJUSTEMENT: 'Correction' }[m.type] || m.type}{' '}
+                        {Number(m.montant).toLocaleString('fr-FR')} F
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ) : (
             <div style={styles.carteFidelite}>
               <div style={{ fontWeight: 700, marginBottom: 4 }}>Fidélité</div>
               <div style={styles.texteMuet}>
@@ -179,6 +222,7 @@ function FicheClient({ clientId, onFermer, onModifie }) {
                 </div>
               )}
             </div>
+            )}
 
             <h3 style={styles.titreBloc}>Historique d'achats ({client.ventes.length})</h3>
             <div style={styles.listeVentes}>

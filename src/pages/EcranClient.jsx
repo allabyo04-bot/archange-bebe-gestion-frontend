@@ -46,7 +46,8 @@ export default function EcranClient() {
   const panier = etat?.panier || [];
   const totalBrut = panier.reduce((s, l) => s + l.prixUnitaire * l.quantite, 0);
   const remise = etat?.remise || 0;
-  const totalNet = totalBrut - remise;
+  const bonusFidelite = etat?.bonusFidelite || 0;
+  const totalNet = totalBrut - remise - bonusFidelite;
 
   return (
     <div style={styles.page}>
@@ -88,6 +89,11 @@ export default function EcranClient() {
             {remise > 0 && (
               <div style={styles.ligneRemise}>
                 Remise : −{remise.toLocaleString('fr-FR')} F
+              </div>
+            )}
+            {bonusFidelite > 0 && (
+              <div style={styles.ligneRemise}>
+                Bonus fidélité : −{bonusFidelite.toLocaleString('fr-FR')} F
               </div>
             )}
             <div style={styles.totalGeant}>

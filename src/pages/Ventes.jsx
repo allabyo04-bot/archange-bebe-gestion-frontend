@@ -24,7 +24,7 @@ const MODES_PAIEMENT = [
 // ------------------------------------------------------------
 // TICKET DE CAISSE
 // ------------------------------------------------------------
-function construireTicketHtml({ vente, panier, remise, totalNet, paiements, contributionAvoir, avoirReference, lieuNom, vendeurNom, estCredit, montantRestant, tarifGros }) {
+function construireTicketHtml({ vente, panier, remise, totalNet, paiements, contributionAvoir, avoirReference, lieuNom, vendeurNom, estCredit, montantRestant, tarifGros, bonusFidelite = 0, fidelite = null }) {
   const date = new Date(vente.createdAt || Date.now());
   const dateTexte = date.toLocaleDateString('fr-FR');
   const heureTexte = date.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
@@ -81,13 +81,20 @@ function construireTicketHtml({ vente, panier, remise, totalNet, paiements, cont
   <hr>
   <table>${lignesHtml}</table>
   <hr>
-  <div class="ligne-total"><span>Sous-total</span><span>${(totalNet + remise).toLocaleString('fr-FR')} F</span></div>
+  <div class="ligne-total"><span>Sous-total</span><span>${(totalNet + remise + bonusFidelite).toLocaleString('fr-FR')} F</span></div>
+  ${bonusFidelite > 0 ? `<div class="ligne-total"><span>BONUS FIDÉLITÉ</span><span>−${bonusFidelite.toLocaleString('fr-FR')} F</span></div>` : ''}
   ${remise > 0 ? `<div class="ligne-total"><span>Remise</span><span>−${remise.toLocaleString('fr-FR')} F</span></div>` : ''}
   <div class="ligne-total total-final"><span>TOTAL</span><span>${totalNet.toLocaleString('fr-FR')} F</span></div>
   <hr>
   ${paiementsHtml}
   ${contributionAvoir > 0 ? `<div class="ligne-total"><span>Avoir ${avoirReference || ''}</span><span>−${contributionAvoir.toLocaleString('fr-FR')} F</span></div>` : ''}
   ${estCredit && montantRestant > 1 ? `<div class="ligne-total"><span>Reste dû (crédit)</span><span>${montantRestant.toLocaleString('fr-FR')} F</span></div>` : ''}
+  ${fidelite ? `<hr>
+  <div class="ligne-total"><span>Statut fidélité</span><span>${fidelite.statut || '-'}</span></div>
+  <div class="ligne-total"><span>Cumul fidélité</span><span>${Number(fidelite.cumulCourant).toLocaleString('fr-FR')} F</span></div>
+  ${fidelite.changementStatut ? `<div class="ligne-total"><span>NOUVEAU STATUT</span><span>${fidelite.changementStatut.vers}</span></div>` : ''}
+  ${fidelite.bonusDisponible > 0 ? `<div class="ligne-total"><span>Bonus disponible</span><span>${Number(fidelite.bonusDisponible).toLocaleString('fr-FR')} F</span></div>` : ''}
+  ${fidelite.prochainPalier ? `<div class="ligne-total"><span>Reste avant bonus de ${Number(fidelite.prochainPalier.bonus).toLocaleString('fr-FR')} F</span><span>${Number(fidelite.prochainPalier.reste).toLocaleString('fr-FR')} F</span></div>` : ''}` : ''}
   <hr>
   <div class="pied">Merci de votre visite !</div>
   <div class="coordonnees">
@@ -227,6 +234,9 @@ export default function Ventes() {
   const [selecteurMotifOuvert, setSelecteurMotifOuvert] = useState(false);
   const [motifChoisi, setMotifChoisi] = useState('');
   const [detailMotif, setDetailMotif] = useState('');
+  // Programme de fidélité : état du client choisi (null si programme éteint ou client non identifié).
+  const [etatFidelite, setEtatFidelite] = useState(null);
+  const [utiliserBonus, setUtiliserBonus] = useState(false);
   const [clientSearch, setClientSearch] = useState('');
   const [creationClientOuverte, setCreationClientOuverte] = useState(false);
   const [nouveauClientNom, setNouveauClientNom] = useState('');
@@ -733,6 +743,7 @@ export default function Ventes() {
 
   function reinitialiserVente() {
     setModeGros(false);
+    setUtiliserBonus(false);
     setSansCoordonnees(null);
     setSelecteurMotifOuvert(false);
     setMotifChoisi('');
@@ -768,7 +779,10 @@ export default function Ventes() {
   const totalBrut = panier.reduce((somme, l) => somme + l.prixUnitaire * l.quantite, 0);
   const pourcentageRemise = Math.min(Math.max(Number(remisePourcent) || 0, 0), 100);
   const remise = Math.round((totalBrut * pourcentageRemise) / 100);
-  const totalNet = totalBrut - remise;
+  const bonusDisponible = etatFidelite?.actif ? etatFidelite.bonusDisponible : 0;
+  const bonusApplicable = bonusDisponible > 0 && remise === 0 && typeVente !== 'Crédit' && totalBrut >= bonusDisponible;
+  const bonusApplique = utiliserBonus && bonusApplicable ? bonusDisponible : 0;
+  const totalNet = totalBrut - remise - bonusApplique;
   const totalPaiements = paiements.reduce((s, p) => s + p.montant, 0);
   const contributionAvoir = avoirVerifie ? Math.min(Number(avoirVerifie.montant), totalNet) : 0;
   const resteAPayer = totalNet - totalPaiements - contributionAvoir;
@@ -780,8 +794,8 @@ export default function Ventes() {
   useEffect(() => {
     // Seuls les prix appliqués partent vers l'écran client : jamais le prix de gros ni le prix
     // normal « de côté » des lignes.
-    diffuserEtatPanier({ panier: panier.map(({ prixGros, prixVente, ...ligne }) => ligne), remise });
-  }, [panier, remise]);
+    diffuserEtatPanier({ panier: panier.map(({ prixGros, prixVente, ...ligne }) => ligne), remise, bonusFidelite: bonusApplique });
+  }, [panier, remise, bonusApplique]);
 
   useEffect(() => {
     if (panier.length > 0 && resteAPayer > 0) {
@@ -865,6 +879,7 @@ export default function Ventes() {
       clientId: idClientFinal,
       typeVente: estCredit ? 'CREDIT' : 'COMPTANT',
       tarif: modeGros ? 'GROS' : undefined,
+      utiliserBonusFidelite: bonusApplique > 0 ? true : undefined,
       sansCoordonnees: coordonneesManquantes && sansCoordonnees ? sansCoordonnees : undefined,
       remisePourcent: pourcentageRemise > 0 ? pourcentageRemise : undefined,
       motifRemise: motifRemise || undefined,
@@ -895,6 +910,8 @@ export default function Ventes() {
       estCredit,
       montantRestant: resteAPayer,
       tarifGros: vente.tarif === 'GROS',
+      bonusFidelite: Number(vente.bonusFidelite || 0),
+      fidelite: vente.fidelite || null,
     });
     setDernierTicketHtml(ticketHtml);
     imprimerTicketDepuisHtml(ticketHtml);
@@ -917,6 +934,15 @@ export default function Ventes() {
     // Dès qu'un client identifié est choisi, la dérogation n'a plus lieu d'être.
     if (clientIdentifie) { setSansCoordonnees(null); setSelecteurMotifOuvert(false); }
   }, [clientIdentifie]);
+
+  useEffect(() => {
+    // État de fidélité du client choisi (statut, cumul, bonus) quand le programme est actif.
+    setUtiliserBonus(false);
+    if (!clientIdentifie || !clientId) { setEtatFidelite(null); return; }
+    appelApi('GET', `/programme-fidelite/client/${clientId}`)
+      .then(setEtatFidelite)
+      .catch(() => setEtatFidelite(null));
+  }, [clientId, clientIdentifie]);
 
   function confirmerSansCoordonnees() {
     setSansCoordonnees({ motif: motifChoisi, detail: detailMotif.trim() || undefined });
@@ -1539,6 +1565,33 @@ export default function Ventes() {
                     ✓ Client identifié (nom et téléphone).
                   </p>
                 )}
+                {etatFidelite?.actif && (
+                  <div style={styles.carteFidelite}>
+                    <div style={{ fontWeight: 700 }}>
+                      Fidélité{etatFidelite.statut ? ` — ${etatFidelite.statut}` : ''}
+                      <span style={{ fontWeight: 500 }}> · cumul {Number(etatFidelite.cumulCourant).toLocaleString('fr-FR')} F</span>
+                    </div>
+                    {etatFidelite.prochainPalier && (
+                      <div style={etatFidelite.alerteProche ? styles.alerteFidelite : { fontSize: 12.5 }}>
+                        {etatFidelite.alerteProche
+                          ? `Plus que ${Number(etatFidelite.prochainPalier.reste).toLocaleString('fr-FR')} F pour un bonus de ${Number(etatFidelite.prochainPalier.bonus).toLocaleString('fr-FR')} F !`
+                          : `Reste ${Number(etatFidelite.prochainPalier.reste).toLocaleString('fr-FR')} F avant un bonus de ${Number(etatFidelite.prochainPalier.bonus).toLocaleString('fr-FR')} F`}
+                      </div>
+                    )}
+                    {bonusDisponible > 0 && (
+                      bonusApplicable ? (
+                        <label style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4, cursor: 'pointer', fontWeight: 600 }}>
+                          <input type="checkbox" checked={utiliserBonus} onChange={(e) => setUtiliserBonus(e.target.checked)} />
+                          Utiliser le bonus fidélité de {Number(bonusDisponible).toLocaleString('fr-FR')} F
+                        </label>
+                      ) : (
+                        <div style={{ fontSize: 12.5, marginTop: 4 }}>
+                          Bonus de {Number(bonusDisponible).toLocaleString('fr-FR')} F disponible : utilisable sur un achat comptant, sans remise, d'au moins ce montant.
+                        </div>
+                      )
+                    )}
+                  </div>
+                )}
                 {coordonneesManquantes && (
                   <div style={styles.coordManquantes}>
                     <strong>Coordonnées requises</strong>
@@ -1787,6 +1840,11 @@ export default function Ventes() {
                   </label>
                   {pourcentageRemise > 0 && (
                     <div style={styles.texteMuet}>= {remise.toLocaleString('fr-FR')} F</div>
+                  )}
+                  {bonusApplique > 0 && (
+                    <div style={{ ...styles.texteMuet, color: '#1E6B36', fontWeight: 700 }}>
+                      Bonus fidélité : −{bonusApplique.toLocaleString('fr-FR')} F
+                    </div>
                   )}
                   {pourcentageRemise > 0 && (
                     <label style={styles.champLabel}>
@@ -2050,6 +2108,8 @@ const styles = {
   barreGros: { display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', margin: '0 0 8px', borderRadius: 8, border: '1px solid var(--cream-deep)', background: 'var(--white)', cursor: 'pointer', fontSize: 13 },
   barreGrosActive: { background: '#FFF4D6', border: '1px solid var(--gold-deep)' },
   avertissementGros: { background: '#FBE4E1', color: 'var(--error)', borderRadius: 8, padding: '6px 10px', fontSize: 12.5, fontWeight: 600, marginBottom: 8 },
+  carteFidelite: { background: '#E8F3EC', border: '1px solid #9DC4AB', borderRadius: 8, padding: '8px 10px', marginTop: 6, fontSize: 13 },
+  alerteFidelite: { fontSize: 13, fontWeight: 700, color: '#8A4B00' },
   coordManquantes: { background: '#FFF4D6', border: '1px solid var(--gold-deep)', borderRadius: 8, padding: '8px 10px', marginTop: 6, fontSize: 13 },
   badgeSansCoord: { marginLeft: 6, fontSize: 11, fontWeight: 700, color: '#8A4B00', background: '#FFE1BD', padding: '2px 7px', borderRadius: 20 },
   badgeGros: { marginLeft: 6, fontSize: 11, fontWeight: 700, color: '#7A5B00', background: '#FFE9A8', padding: '2px 7px', borderRadius: 20 },

@@ -123,5 +123,15 @@ textarea {
   .etats-page h1 {
     font-size: 20px !important;
   }
+  /* Menu des États : pleine largeur au-dessus du contenu, sans rester collé à l'écran. */
+  .etats-nav {
+    position: static !important;
+    flex: 1 1 100% !important;
+  }
 }
 
+/* Menu vertical des États : reste visible à gauche quand on fait défiler un long état. */
+.etats-nav {
+  position: sticky;
+  top: 16px;
+}

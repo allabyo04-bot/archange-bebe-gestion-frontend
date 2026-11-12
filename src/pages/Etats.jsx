@@ -314,7 +314,8 @@ export default function Etats() {
         <h1 style={styles.titre}>États</h1>
       </div>
 
-      <div style={styles.nav}>
+      <div style={styles.corps}>
+      <div style={styles.nav} className="etats-nav">
         {ONGLETS.map((o) => (
           <div
             key={o.id}
@@ -325,6 +326,8 @@ export default function Etats() {
           </div>
         ))}
       </div>
+
+      <div style={styles.contenu}>
 
       {ongletActif === 'coordonnees' || ongletActif === 'relance' || ongletActif === 'programme' ? null : ongletActif === 'fidelite' ? (
         <div style={styles.blocFiltres}>
@@ -764,6 +767,8 @@ export default function Etats() {
           )}
         </>
       )}
+      </div>
+      </div>
     </div>
   );
 }
@@ -773,9 +778,12 @@ const styles = {
   enTete: { display: 'flex', alignItems: 'center', gap: 16 },
   titre: { fontFamily: 'var(--font-display)', margin: 0, fontSize: 24 },
   boutonRetour: { padding: '8px 10px', borderRadius: 8, border: '1px solid var(--gold-mid)', background: 'transparent', color: 'var(--brown-ink)', cursor: 'pointer', fontSize: 13 },
-  nav: { display: 'flex', gap: 6, flexWrap: 'wrap' },
-  navItem: { padding: '8px 14px', borderRadius: 20, fontSize: 13, cursor: 'pointer', border: '1px solid var(--cream-deep)' },
-  navItemActif: { padding: '8px 14px', borderRadius: 20, fontSize: 13, cursor: 'pointer', background: 'var(--gold-deep)', color: 'var(--white)', fontWeight: 600, border: '1px solid var(--gold-deep)' },
+  // Menu des onglets en colonne à gauche, contenu à droite (sous le menu sur un écran étroit).
+  corps: { display: 'flex', gap: 20, alignItems: 'flex-start', flexWrap: 'wrap' },
+  nav: { display: 'flex', flexDirection: 'column', gap: 4, flex: '0 0 230px' },
+  contenu: { flex: 1, minWidth: 320, display: 'flex', flexDirection: 'column', gap: 16 },
+  navItem: { padding: '10px 14px', borderRadius: 10, fontSize: 13.5, cursor: 'pointer', border: '1px solid var(--cream-deep)', background: 'var(--white)' },
+  navItemActif: { padding: '10px 14px', borderRadius: 10, fontSize: 13.5, cursor: 'pointer', background: 'var(--gold-deep)', color: 'var(--white)', fontWeight: 600, border: '1px solid var(--gold-deep)' },
   blocFiltres: { display: 'flex', gap: 16, alignItems: 'flex-end', flexWrap: 'wrap', background: 'var(--white)', padding: 16, borderRadius: 12 },
   champLabel: { display: 'flex', flexDirection: 'column', gap: 4, fontSize: 13, fontWeight: 600 },
   champInput: { padding: '8px 10px', borderRadius: 8, border: '1px solid var(--cream-deep)', fontSize: 14, minWidth: 160 },

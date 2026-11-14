@@ -414,9 +414,20 @@ export default function Ventes() {
     }
   }
 
+  // Le code d'un avoir est « AV- » suivi de chiffres : si la caissière ne tape que les chiffres
+  // (ou « AV » sans tiret, ou avec des espaces), on complète pour elle.
+  function normaliserCodeAvoir(brut) {
+    const t = String(brut || '').replace(/\s+/g, '').toUpperCase();
+    if (!t) return '';
+    if (/^\d+$/.test(t)) return `AV-${t}`;
+    const m = t.match(/^AV[-_.]?(\d+)$/);
+    return m ? `AV-${m[1]}` : t;
+  }
+
   async function verifierAvoir() {
-    const code = codeAvoir.trim();
+    const code = normaliserCodeAvoir(codeAvoir);
     if (!code) return;
+    setCodeAvoir(code);
     setErreurAvoir('');
     setAvoirVerificationEnCours(true);
     try {

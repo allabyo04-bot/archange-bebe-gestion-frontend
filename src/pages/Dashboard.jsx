@@ -132,6 +132,22 @@ export default function Dashboard() {
                 </div>
               </div>
             )}
+            {estAdmin && dashboard.fidelite && (
+              <div
+                style={{ background: 'var(--cream-deep)', padding: 20, borderRadius: 12, cursor: 'pointer' }}
+                onClick={() => navigate('/etats?onglet=programme')}
+                title="Coût du programme de fidélité et clients proches d'un palier — ouvre le détail"
+              >
+                <div style={{ fontSize: 13, opacity: 0.7 }}>Remises fidélité (ce mois)</div>
+                <div style={{ fontSize: 24, fontWeight: 700 }}>{dashboard.fidelite.cout.mois.total.toLocaleString('fr-FR')} F</div>
+                <div style={{ fontSize: 12, opacity: 0.6 }}>
+                  {dashboard.fidelite.cout.mois.nombre} remise(s) · {dashboard.fidelite.cout.annee.total.toLocaleString('fr-FR')} F depuis janvier
+                </div>
+                <div style={{ fontSize: 12, marginTop: 4, color: 'var(--gold-deep)', fontWeight: 600 }}>
+                  {dashboard.fidelite.proches.length} client(s) proche(s) d'un palier · {dashboard.fidelite.nombreBonusEnAttente} remise(s) à venir
+                </div>
+              </div>
+            )}
             {estAdmin && (
               <>
                 <div style={{ background: 'var(--cream-deep)', padding: 20, borderRadius: 12 }}>

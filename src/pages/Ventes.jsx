@@ -24,7 +24,7 @@ const MODES_PAIEMENT = [
 // ------------------------------------------------------------
 // TICKET DE CAISSE
 // ------------------------------------------------------------
-function construireTicketHtml({ vente, panier, remise, totalNet, paiements, contributionAvoir, avoirReference, lieuNom, vendeurNom, estCredit, montantRestant, tarifGros, bonusFidelite = 0, fidelite = null }) {
+function construireTicketHtml({ vente, panier, remise, totalNet, paiements, contributionAvoir, avoirReference, lieuNom, vendeurNom, clientNom = '', estCredit, montantRestant, tarifGros, bonusFidelite = 0, fidelite = null }) {
   const date = new Date(vente.createdAt || Date.now());
   const dateTexte = date.toLocaleDateString('fr-FR');
   const heureTexte = date.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
@@ -77,12 +77,13 @@ function construireTicketHtml({ vente, panier, remise, totalNet, paiements, cont
     <div>Ticket ${vente.numero}</div>
     ${tarifGros ? '<div style="font-weight:800">TARIF DE GROS</div>' : ''}
     ${vendeurNom ? `<div>Vendeur : ${vendeurNom}</div>` : ''}
+    ${clientNom ? `<div>Client : ${clientNom}</div>` : ''}
   </div>
   <hr>
   <table>${lignesHtml}</table>
   <hr>
   <div class="ligne-total"><span>Sous-total</span><span>${(totalNet + remise + bonusFidelite).toLocaleString('fr-FR')} F</span></div>
-  ${bonusFidelite > 0 ? `<div class="ligne-total"><span>BONUS FIDÉLITÉ</span><span>−${bonusFidelite.toLocaleString('fr-FR')} F</span></div>` : ''}
+  ${bonusFidelite > 0 ? `<div class="ligne-total"><span>REMISE FIDÉLITÉ</span><span>−${bonusFidelite.toLocaleString('fr-FR')} F</span></div>` : ''}
   ${remise > 0 ? `<div class="ligne-total"><span>Remise</span><span>−${remise.toLocaleString('fr-FR')} F</span></div>` : ''}
   <div class="ligne-total total-final"><span>TOTAL</span><span>${totalNet.toLocaleString('fr-FR')} F</span></div>
   <hr>
@@ -91,10 +92,10 @@ function construireTicketHtml({ vente, panier, remise, totalNet, paiements, cont
   ${estCredit && montantRestant > 1 ? `<div class="ligne-total"><span>Reste dû (crédit)</span><span>${montantRestant.toLocaleString('fr-FR')} F</span></div>` : ''}
   ${fidelite ? `<hr>
   <div class="ligne-total"><span>Statut fidélité</span><span>${fidelite.statut || '-'}</span></div>
-  <div class="ligne-total"><span>Cumul fidélité</span><span>${Number(fidelite.cumulCourant).toLocaleString('fr-FR')} F</span></div>
+  <div class="ligne-total"><span>Vos points</span><span>${Number(fidelite.pointsCourants || 0).toLocaleString('fr-FR')} pts</span></div>
   ${fidelite.changementStatut ? `<div class="ligne-total"><span>NOUVEAU STATUT</span><span>${fidelite.changementStatut.vers}</span></div>` : ''}
-  ${fidelite.bonusDisponible > 0 ? `<div class="ligne-total"><span>Bonus disponible</span><span>${Number(fidelite.bonusDisponible).toLocaleString('fr-FR')} F</span></div>` : ''}
-  ${fidelite.prochainPalier ? `<div class="ligne-total"><span>Reste avant bonus de ${Number(fidelite.prochainPalier.bonus).toLocaleString('fr-FR')} F</span><span>${Number(fidelite.prochainPalier.reste).toLocaleString('fr-FR')} F</span></div>` : ''}` : ''}
+  ${fidelite.bonusDisponible > 0 ? `<div class="ligne-total"><span>Remise gagnée pour votre prochain achat</span><span>${Number(fidelite.bonusDisponible).toLocaleString('fr-FR')} F</span></div>` : ''}
+  ${fidelite.prochainPalier ? `<div class="ligne-total"><span>Encore ${Number(fidelite.prochainPalier.restePoints).toLocaleString('fr-FR')} pts pour ${Number(fidelite.prochainPalier.bonus).toLocaleString('fr-FR')} F de remise</span><span></span></div>` : ''}` : ''}
   <hr>
   <div class="pied">Merci de votre visite !</div>
   <div class="coordonnees">
@@ -236,7 +237,6 @@ export default function Ventes() {
   const [detailMotif, setDetailMotif] = useState('');
   // Programme de fidélité : état du client choisi (null si programme éteint ou client non identifié).
   const [etatFidelite, setEtatFidelite] = useState(null);
-  const [utiliserBonus, setUtiliserBonus] = useState(false);
   const [clientSearch, setClientSearch] = useState('');
   const [creationClientOuverte, setCreationClientOuverte] = useState(false);
   const [nouveauClientNom, setNouveauClientNom] = useState('');
@@ -743,7 +743,6 @@ export default function Ventes() {
 
   function reinitialiserVente() {
     setModeGros(false);
-    setUtiliserBonus(false);
     setSansCoordonnees(null);
     setSelecteurMotifOuvert(false);
     setMotifChoisi('');
@@ -781,7 +780,8 @@ export default function Ventes() {
   const remise = Math.round((totalBrut * pourcentageRemise) / 100);
   const bonusDisponible = etatFidelite?.actif ? etatFidelite.bonusDisponible : 0;
   const bonusApplicable = bonusDisponible > 0 && remise === 0 && typeVente !== 'Crédit' && totalBrut >= bonusDisponible;
-  const bonusApplique = utiliserBonus && bonusApplicable ? bonusDisponible : 0;
+  // Remise de fidélité automatique : appliquée dès que le client y a droit (le serveur décide).
+  const bonusApplique = bonusApplicable ? bonusDisponible : 0;
   const totalNet = totalBrut - remise - bonusApplique;
   const totalPaiements = paiements.reduce((s, p) => s + p.montant, 0);
   const contributionAvoir = avoirVerifie ? Math.min(Number(avoirVerifie.montant), totalNet) : 0;
@@ -879,7 +879,6 @@ export default function Ventes() {
       clientId: idClientFinal,
       typeVente: estCredit ? 'CREDIT' : 'COMPTANT',
       tarif: modeGros ? 'GROS' : undefined,
-      utiliserBonusFidelite: bonusApplique > 0 ? true : undefined,
       sansCoordonnees: coordonneesManquantes && sansCoordonnees ? sansCoordonnees : undefined,
       remisePourcent: pourcentageRemise > 0 ? pourcentageRemise : undefined,
       motifRemise: motifRemise || undefined,
@@ -901,12 +900,13 @@ export default function Ventes() {
       vente,
       panier,
       remise,
-      totalNet,
+      totalNet: Number(vente.totalNet ?? totalNet),
       paiements,
       contributionAvoir,
       avoirReference: avoirVerifie?.reference,
       lieuNom,
       vendeurNom,
+      clientNom: clientIdentifie ? clientActuel.nomComplet : '',
       estCredit,
       montantRestant: resteAPayer,
       tarifGros: vente.tarif === 'GROS',
@@ -937,7 +937,6 @@ export default function Ventes() {
 
   useEffect(() => {
     // État de fidélité du client choisi (statut, cumul, bonus) quand le programme est actif.
-    setUtiliserBonus(false);
     if (!clientIdentifie || !clientId) { setEtatFidelite(null); return; }
     appelApi('GET', `/programme-fidelite/client/${clientId}`)
       .then(setEtatFidelite)
@@ -1569,24 +1568,23 @@ export default function Ventes() {
                   <div style={styles.carteFidelite}>
                     <div style={{ fontWeight: 700 }}>
                       Fidélité{etatFidelite.statut ? ` — ${etatFidelite.statut}` : ''}
-                      <span style={{ fontWeight: 500 }}> · cumul {Number(etatFidelite.cumulCourant).toLocaleString('fr-FR')} F</span>
+                      <span style={{ fontWeight: 500 }}> · {Number(etatFidelite.pointsCourants).toLocaleString('fr-FR')} points</span>
                     </div>
                     {etatFidelite.prochainPalier && (
                       <div style={etatFidelite.alerteProche ? styles.alerteFidelite : { fontSize: 12.5 }}>
                         {etatFidelite.alerteProche
-                          ? `Plus que ${Number(etatFidelite.prochainPalier.reste).toLocaleString('fr-FR')} F pour un bonus de ${Number(etatFidelite.prochainPalier.bonus).toLocaleString('fr-FR')} F !`
-                          : `Reste ${Number(etatFidelite.prochainPalier.reste).toLocaleString('fr-FR')} F avant un bonus de ${Number(etatFidelite.prochainPalier.bonus).toLocaleString('fr-FR')} F`}
+                          ? `Plus que ${Number(etatFidelite.prochainPalier.restePoints).toLocaleString('fr-FR')} points pour ${Number(etatFidelite.prochainPalier.bonus).toLocaleString('fr-FR')} F de remise !`
+                          : `Encore ${Number(etatFidelite.prochainPalier.restePoints).toLocaleString('fr-FR')} points pour ${Number(etatFidelite.prochainPalier.bonus).toLocaleString('fr-FR')} F de remise`}
                       </div>
                     )}
                     {bonusDisponible > 0 && (
                       bonusApplicable ? (
-                        <label style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4, cursor: 'pointer', fontWeight: 600 }}>
-                          <input type="checkbox" checked={utiliserBonus} onChange={(e) => setUtiliserBonus(e.target.checked)} />
-                          Utiliser le bonus fidélité de {Number(bonusDisponible).toLocaleString('fr-FR')} F
-                        </label>
+                        <div style={{ marginTop: 4, fontWeight: 700, color: '#1E6B36' }}>
+                          Remise fidélité de {Number(bonusDisponible).toLocaleString('fr-FR')} F appliquée automatiquement
+                        </div>
                       ) : (
                         <div style={{ fontSize: 12.5, marginTop: 4 }}>
-                          Bonus de {Number(bonusDisponible).toLocaleString('fr-FR')} F disponible : utilisable sur un achat comptant, sans remise, d'au moins ce montant.
+                          Remise fidélité de {Number(bonusDisponible).toLocaleString('fr-FR')} F gagnée : elle s'appliquera sur un achat comptant, sans autre remise, d'au moins ce montant.
                         </div>
                       )
                     )}
@@ -1843,7 +1841,7 @@ export default function Ventes() {
                   )}
                   {bonusApplique > 0 && (
                     <div style={{ ...styles.texteMuet, color: '#1E6B36', fontWeight: 700 }}>
-                      Bonus fidélité : −{bonusApplique.toLocaleString('fr-FR')} F
+                      Remise fidélité : −{bonusApplique.toLocaleString('fr-FR')} F
                     </div>
                   )}
                   {pourcentageRemise > 0 && (

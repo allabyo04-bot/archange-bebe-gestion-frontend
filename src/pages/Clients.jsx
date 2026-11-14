@@ -177,21 +177,21 @@ function FicheClient({ clientId, onFermer, onModifie }) {
                   </div>
                 )}
                 <div style={styles.texteMuet}>
-                  Cumul courant : {Number(fid.cumulCourant).toLocaleString('fr-FR')} F · cumul à vie : {Number(fid.cumulTotal).toLocaleString('fr-FR')} F
+                  Points : {Number(fid.pointsCourants).toLocaleString('fr-FR')} · points à vie : {Number(fid.pointsTotal).toLocaleString('fr-FR')}
                 </div>
                 {fid.bonusDisponible > 0 && (
                   <div style={{ fontWeight: 700, color: '#1E6B36', marginTop: 4 }}>
-                    Bonus disponible : {Number(fid.bonusDisponible).toLocaleString('fr-FR')} F
+                    Remise gagnée (prochain achat) : {Number(fid.bonusDisponible).toLocaleString('fr-FR')} F
                   </div>
                 )}
                 {fid.prochainPalier && (
                   <div style={styles.texteMuet}>
-                    Reste {Number(fid.prochainPalier.reste).toLocaleString('fr-FR')} F avant un bonus de {Number(fid.prochainPalier.bonus).toLocaleString('fr-FR')} F
+                    Encore {Number(fid.prochainPalier.restePoints).toLocaleString('fr-FR')} points pour {Number(fid.prochainPalier.bonus).toLocaleString('fr-FR')} F de remise
                   </div>
                 )}
                 {fid.statutSuivant && (
                   <div style={styles.texteMuet}>
-                    Reste {Number(fid.statutSuivant.reste).toLocaleString('fr-FR')} F avant le statut « {fid.statutSuivant.nom} »
+                    Encore {Math.ceil(fid.statutSuivant.reste / (fid.valeurPoint || 1000)).toLocaleString('fr-FR')} points avant le statut « {fid.statutSuivant.nom} »
                   </div>
                 )}
                 {fid.mouvements.length > 0 && (

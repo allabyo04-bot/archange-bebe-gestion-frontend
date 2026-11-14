@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { appelApi } from '../lib/api';
+import { lienWhatsApp } from '../lib/telephone';
 
 // Programme de fidélité (administrateur) : tout se règle ici, rien n'est écrit en dur.
 //  - paliers de bonus : quand le cumul courant d'un client atteint le seuil, il a droit au bonus ;
@@ -7,7 +8,7 @@ import { appelApi } from '../lib/api';
 //  - réglages : alerte avant un palier, ventes avec remise, ventes à crédit.
 // Éteint au départ : à allumer seulement une fois les montants validés par la direction.
 const EXEMPLE = {
-  paliers: [{ seuil: '100000', montantBonus: '5000' }, { seuil: '250000', montantBonus: '15000' }, { seuil: '500000', montantBonus: '35000' }],
+  paliers: [{ seuil: '500000', montantBonus: '5000' }, { seuil: '1000000', montantBonus: '10000' }],
   statuts: [{ nom: 'Bienvenue', seuil: '0' }, { nom: 'Fidèle', seuil: '150000' }, { nom: 'Privilège', seuil: '400000' }, { nom: 'VIP', seuil: '1000000' }],
 };
 
@@ -15,6 +16,7 @@ export default function ProgrammeFidelite() {
   const [form, setForm] = useState(null);
   const [etatInitial, setEtatInitial] = useState(null);
   const [classement, setClassement] = useState(null);
+  const [bilan, setBilan] = useState(null);
   const [erreur, setErreur] = useState('');
   const [message, setMessage] = useState('');
   const [enCours, setEnCours] = useState(false);
@@ -25,6 +27,7 @@ export default function ProgrammeFidelite() {
       alerteReste: String(p.alerteReste),
       exclureRemises: p.exclureRemises,
       compterCredit: p.compterCredit,
+      valeurPoint: String(p.valeurPoint || 1000),
       paliers: p.paliers.map((x) => ({ seuil: String(x.seuil), montantBonus: String(x.montantBonus) })),
       statuts: p.statuts.map((x) => ({ nom: x.nom, seuil: String(x.seuil) })),
     };
@@ -35,6 +38,7 @@ export default function ProgrammeFidelite() {
       .then((p) => { setForm(versFormulaire(p)); setEtatInitial(p.actif); })
       .catch((err) => setErreur(err.message));
     appelApi('GET', '/programme-fidelite/classement').then(setClassement).catch(() => {});
+    appelApi('GET', '/programme-fidelite/bilan').then(setBilan).catch(() => {});
   }
   useEffect(() => { charger(); }, []);
 
@@ -48,7 +52,7 @@ export default function ProgrammeFidelite() {
   async function enregistrer() {
     setErreur(''); setMessage('');
     if (form.actif && !etatInitial) {
-      const ok = window.confirm("Allumer le programme maintenant ?\n\nLes caissières verront le statut et le cumul de chaque client identifié et pourront appliquer les bonus. Si vous voulez compter l'historique des ventes, lancez d'abord la reprise (voir la note en bas de page).");
+      const ok = window.confirm("Allumer le programme maintenant ?\n\nLes caissières verront le statut et les points de chaque client identifié, et la remise de fidélité se déduira automatiquement. Si vous voulez compter l'historique des ventes, lancez d'abord la reprise (voir la note en bas de page).");
       if (!ok) return;
     }
     setEnCours(true);
@@ -58,6 +62,7 @@ export default function ProgrammeFidelite() {
         alerteReste: Number(form.alerteReste),
         exclureRemises: form.exclureRemises,
         compterCredit: form.compterCredit,
+        valeurPoint: Number(form.valeurPoint),
         paliers: form.paliers.map((p) => ({ seuil: Number(p.seuil), montantBonus: Number(p.montantBonus) })),
         statuts: form.statuts.map((s) => ({ nom: s.nom, seuil: Number(s.seuil) })),
       };
@@ -66,6 +71,7 @@ export default function ProgrammeFidelite() {
       setEtatInitial(p.actif);
       setMessage('Programme enregistré.');
       appelApi('GET', '/programme-fidelite/classement').then(setClassement).catch(() => {});
+      appelApi('GET', '/programme-fidelite/bilan').then(setBilan).catch(() => {});
     } catch (err) {
       setErreur(err.message);
     } finally {
@@ -75,9 +81,63 @@ export default function ProgrammeFidelite() {
 
   if (!form) return <p style={styles.muet}>{erreur || 'Chargement…'}</p>;
   const f = (n) => Number(n).toLocaleString('fr-FR');
+  const vp = Number(form.valeurPoint) > 0 ? Number(form.valeurPoint) : 1000;
 
   return (
     <div>
+      {bilan && bilan.actif && (
+        <div style={{ marginBottom: 18 }}>
+          <h3 style={styles.titre}>Ce que le programme a coûté</h3>
+          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+            {[['Ce mois', bilan.cout.mois], ['Depuis janvier', bilan.cout.annee], ['Depuis le début', bilan.cout.total]].map(([titre, c]) => (
+              <div key={titre} style={styles.carteChiffre}>
+                <div style={styles.muet}>{titre}</div>
+                <div style={{ fontSize: 20, fontWeight: 700 }}>{f(c.total)} F</div>
+                <div style={styles.muet}>{c.nombre} remise(s) accordée(s)</div>
+              </div>
+            ))}
+            <div style={styles.carteChiffre}>
+              <div style={styles.muet}>Remises gagnées, pas encore utilisées</div>
+              <div style={{ fontSize: 20, fontWeight: 700 }}>{f(bilan.montantBonusEnAttente)} F</div>
+              <div style={styles.muet}>{bilan.nombreBonusEnAttente} client(s)</div>
+            </div>
+          </div>
+
+          <h3 style={styles.titre}>Clients proches d'un palier</h3>
+          {bilan.proches.length === 0 ? (
+            <p style={styles.muet}>Aucun client à moins de {f(Math.ceil((form.alerteReste || 0) / vp))} points d'un palier pour le moment.</p>
+          ) : bilan.proches.map((c) => {
+            const wa = lienWhatsApp(c.telephone);
+            return (
+              <div key={c.id} style={styles.ligne}>
+                <span style={{ fontWeight: 600 }}>{c.nomComplet}</span>
+                <span style={styles.muet}>
+                  {f(c.pointsCourants)} pts · encore {f(c.prochainPalier.restePoints)} pts pour {f(c.prochainPalier.bonus)} F
+                  {wa && <> · <a href={wa} target="_blank" rel="noopener noreferrer" style={{ color: '#1E6B36', fontWeight: 600 }}>WhatsApp</a></>}
+                </span>
+              </div>
+            );
+          })}
+
+          {bilan.bonusEnAttente.length > 0 && (
+            <>
+              <h3 style={styles.titre}>Remises gagnées à venir (prochain achat)</h3>
+              {bilan.bonusEnAttente.map((c) => {
+                const wa = lienWhatsApp(c.telephone);
+                return (
+                  <div key={c.id} style={styles.ligne}>
+                    <span style={{ fontWeight: 600 }}>{c.nomComplet}</span>
+                    <span style={styles.muet}>
+                      {f(c.pointsCourants)} pts · remise de {f(c.bonusDisponible)} F
+                      {wa && <> · <a href={wa} target="_blank" rel="noopener noreferrer" style={{ color: '#1E6B36', fontWeight: 600 }}>WhatsApp</a></>}
+                    </span>
+                  </div>
+                );
+              })}
+            </>
+          )}
+        </div>
+      )}
       <div style={styles.carteRegle}>
         <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontWeight: 700, cursor: 'pointer' }}>
           <input type="checkbox" checked={form.actif} onChange={(e) => { setForm({ ...form, actif: e.target.checked }); setMessage(''); }} />
@@ -92,12 +152,14 @@ export default function ProgrammeFidelite() {
 
       <h3 style={styles.titre}>Paliers de bonus</h3>
       <p style={styles.muet}>
-        Quand le cumul courant d'un client atteint le seuil, il a droit au bonus (le plus haut palier atteint). Le bonus est déduit du total d'un
-        achat comptant, sans remise, d'au moins son montant ; le cumul courant repart alors de zéro.
+        Quand le cumul courant d'un client atteint le seuil, il a droit à la remise (le plus haut palier atteint). Elle est déduite AUTOMATIQUEMENT
+        du total de son prochain achat comptant, sans autre remise, d'au moins son montant ; le cumul courant repart alors de zéro. Le client,
+        lui, ne voit que des points (1 point = {f(vp)} F d'achats).
       </p>
       {form.paliers.map((p, i) => (
         <div key={i} style={styles.ligneForm}>
           <label style={styles.champ}>Seuil (F)<input type="number" style={styles.input} value={p.seuil} onChange={(e) => changerLigne('paliers', i, 'seuil', e.target.value)} /></label>
+          <span style={{ ...styles.muet, alignSelf: 'center' }}>= {f(Math.floor(Number(p.seuil || 0) / vp))} points</span>
           <label style={styles.champ}>Bonus (F)<input type="number" style={styles.input} value={p.montantBonus} onChange={(e) => changerLigne('paliers', i, 'montantBonus', e.target.value)} /></label>
           <button onClick={() => retirerLigne('paliers', i)} style={styles.retirer}>Retirer</button>
         </div>
@@ -117,6 +179,10 @@ export default function ProgrammeFidelite() {
 
       <h3 style={styles.titre}>Réglages</h3>
       <label style={styles.champ}>
+        Valeur d'un point (F d'achats pour 1 point)
+        <input type="number" min="1" style={{ ...styles.input, maxWidth: 160 }} value={form.valeurPoint} onChange={(e) => { setForm({ ...form, valeurPoint: e.target.value }); setMessage(''); }} />
+      </label>
+      <label style={styles.champ}>
         Alerte à la caisse quand il reste moins de (F) avant un palier
         <input type="number" style={{ ...styles.input, maxWidth: 160 }} value={form.alerteReste} onChange={(e) => { setForm({ ...form, alerteReste: e.target.value }); setMessage(''); }} />
       </label>
@@ -133,12 +199,12 @@ export default function ProgrammeFidelite() {
       {message && <p style={{ color: '#1E6B36', fontWeight: 700 }}>{message}</p>}
       <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 12 }}>
         <button onClick={enregistrer} disabled={enCours} style={styles.principal}>{enCours ? 'Enregistrement…' : 'Enregistrer le programme'}</button>
-        <button onClick={() => { setForm({ ...form, paliers: EXEMPLE.paliers, statuts: EXEMPLE.statuts }); setMessage(''); }} style={styles.secondaire}>
-          Charger un exemple à adapter
+        <button onClick={() => { setForm({ ...form, paliers: EXEMPLE.paliers, statuts: form.statuts.length ? form.statuts : EXEMPLE.statuts }); setMessage(''); }} style={styles.secondaire}>
+          Charger la règle 500 000 → 5 000 / 1 000 000 → 10 000
         </button>
       </div>
       <p style={styles.muet}>
-        L'exemple n'est qu'une suggestion : les montants sont à décider avec la direction. Pour compter l'historique des ventes avant l'allumage,
+        Pour compter l'historique des ventes avant l'allumage,
         lancer dans la console Railway du backend : <code>node scripts/rattraperFidelite.js AAAA-MM-JJ</code> (aperçu), puis la même commande suivie de <code>appliquer</code>.
       </p>
 
@@ -148,7 +214,7 @@ export default function ProgrammeFidelite() {
           {classement.clients.map((c) => (
             <div key={c.id} style={styles.ligne}>
               <span style={{ fontWeight: 600 }}>{c.nomComplet}</span>
-              <span style={styles.muet}>{c.statut || '—'} · cumul courant {f(c.cumulCourant)} F · à vie {f(c.cumulTotal)} F{c.bonusDisponible > 0 ? ` · bonus ${f(c.bonusDisponible)} F disponible` : ''}</span>
+              <span style={styles.muet}>{c.statut || '—'} · {f(c.pointsCourants)} pts · à vie {f(c.pointsTotal)} pts{c.bonusDisponible > 0 ? ` · remise ${f(c.bonusDisponible)} F gagnée` : ''}</span>
             </div>
           ))}
         </>
@@ -168,5 +234,6 @@ const styles = {
   principal: { padding: '10px 18px', borderRadius: 8, border: 'none', background: 'var(--gold-deep)', color: 'var(--white)', cursor: 'pointer', fontWeight: 600 },
   secondaire: { padding: '8px 14px', borderRadius: 8, border: '1px solid var(--gold-mid)', background: 'transparent', cursor: 'pointer', fontSize: 13 },
   retirer: { border: 'none', background: 'transparent', color: 'var(--error)', cursor: 'pointer', fontSize: 12, fontWeight: 600, padding: '8px 4px' },
+  carteChiffre: { background: 'var(--cream)', borderRadius: 10, padding: '10px 14px', minWidth: 160 },
   ligne: { display: 'flex', justifyContent: 'space-between', gap: 10, padding: '7px 0', borderBottom: '1px solid var(--cream-deep)', fontSize: 13.5, flexWrap: 'wrap' },
 };

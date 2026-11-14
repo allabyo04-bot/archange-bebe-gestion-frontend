@@ -93,7 +93,7 @@ export default function EcranClient() {
             )}
             {bonusFidelite > 0 && (
               <div style={styles.ligneRemise}>
-                Bonus fidélité : −{bonusFidelite.toLocaleString('fr-FR')} F
+                Remise fidélité : −{bonusFidelite.toLocaleString('fr-FR')} F
               </div>
             )}
             <div style={styles.totalGeant}>

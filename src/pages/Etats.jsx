@@ -46,6 +46,7 @@ function imprimerFermetureCaisse(fermeture, lieuNom) {
   <div class="section-titre">Avoirs</div>
   <div class="ligne"><span>Émis (${fermeture.avoirsEmis.nombre})</span><span>${fermeture.avoirsEmis.montant.toLocaleString('fr-FR')} F</span></div>
   <div class="ligne"><span>Utilisés (${fermeture.avoirsUtilises.nombre})</span><span>${fermeture.avoirsUtilises.montant.toLocaleString('fr-FR')} F</span></div>
+  ${fermeture.avoirsResteEmis && fermeture.avoirsResteEmis.nombre > 0 ? `<div class="ligne"><span>Restes d'avoir créés (${fermeture.avoirsResteEmis.nombre})</span><span>${fermeture.avoirsResteEmis.montant.toLocaleString('fr-FR')} F</span></div>` : ''}
   <script>window.onload = () => window.print();</script>
 </body>
 </html>`;
@@ -505,9 +506,12 @@ export default function Etats() {
               </div>
 
               <div style={styles.carte}>
-                <div style={styles.carteLabel}>Avoirs émis</div>
+                <div style={styles.carteLabel}>Avoirs émis (retours)</div>
                 <div style={styles.carteValeur}>{fermeture.avoirsEmis.nombre}</div>
-                <div style={styles.texteMuet}>{fermeture.avoirsEmis.montant.toLocaleString('fr-FR')} F</div>
+                <div style={styles.texteMuet}>
+                  {fermeture.avoirsEmis.montant.toLocaleString('fr-FR')} F
+                  {fermeture.avoirsResteEmis && fermeture.avoirsResteEmis.nombre > 0 && ` · + ${fermeture.avoirsResteEmis.montant.toLocaleString('fr-FR')} F de restes d'avoir`}
+                </div>
               </div>
               <div style={styles.carte}>
                 <div style={styles.carteLabel}>Avoirs utilisés</div>
@@ -678,6 +682,9 @@ export default function Etats() {
             <div style={styles.tableauWrapper}>
               <p style={styles.texteMuet}>
                 {donneesAJour.nombreVentes} vente(s) — Total : {donneesAJour.total.toLocaleString('fr-FR')} F
+                {donneesAJour.retours && donneesAJour.retours.montant > 0 && (
+                  <> (ventes {donneesAJour.totalBrut.toLocaleString('fr-FR')} F − retours {donneesAJour.retours.montant.toLocaleString('fr-FR')} F)</>
+                )}
               </p>
               {donneesAJour.ventes.map((v) => (
                 <div key={v.id} style={styles.carteAttente}>
@@ -745,7 +752,10 @@ export default function Etats() {
               <div style={styles.carte}>
                 <div style={styles.carteLabel}>Ventes</div>
                 <div style={styles.carteValeur}>{donneesAJour.totalVentes.toLocaleString('fr-FR')} F</div>
-                <div style={styles.texteMuet}>{donneesAJour.nombreVentes} vente(s)</div>
+                <div style={styles.texteMuet}>
+                  {donneesAJour.nombreVentes} vente(s)
+                  {donneesAJour.retours && donneesAJour.retours.montant > 0 && ` · après retours de ${donneesAJour.retours.montant.toLocaleString('fr-FR')} F`}
+                </div>
               </div>
               <div style={styles.carte}>
                 <div style={styles.carteLabel}>Remises accordées</div>

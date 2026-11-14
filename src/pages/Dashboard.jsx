@@ -80,7 +80,10 @@ export default function Dashboard() {
             >
               <div style={{ fontSize: 13, opacity: 0.7 }}>Ventes du jour</div>
               <div style={{ fontSize: 24, fontWeight: 700 }}>{dashboard.ventes.total.toLocaleString('fr-FR')} F</div>
-              <div style={{ fontSize: 12, opacity: 0.6 }}>{dashboard.ventes.nombre} vente(s)</div>
+              <div style={{ fontSize: 12, opacity: 0.6 }}>
+                {dashboard.ventes.nombre} vente(s)
+                {dashboard.ventes.retours && dashboard.ventes.retours.montant > 0 && ` · après retours de ${dashboard.ventes.retours.montant.toLocaleString('fr-FR')} F`}
+              </div>
             </div>
             )}
             {!estAdmin && (voitStock || voitVentes) && (

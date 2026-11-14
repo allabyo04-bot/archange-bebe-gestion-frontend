@@ -24,7 +24,7 @@ const MODES_PAIEMENT = [
 // ------------------------------------------------------------
 // TICKET DE CAISSE
 // ------------------------------------------------------------
-function construireTicketHtml({ vente, panier, remise, totalNet, paiements, contributionAvoir, avoirReference, lieuNom, vendeurNom, clientNom = '', estCredit, montantRestant, tarifGros, bonusFidelite = 0, fidelite = null }) {
+function construireTicketHtml({ vente, panier, remise, totalNet, paiements, contributionAvoir, avoirReference, lieuNom, vendeurNom, clientNom = '', avoirReste = null, estCredit, montantRestant, tarifGros, bonusFidelite = 0, fidelite = null }) {
   const date = new Date(vente.createdAt || Date.now());
   const dateTexte = date.toLocaleDateString('fr-FR');
   const heureTexte = date.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
@@ -90,6 +90,7 @@ function construireTicketHtml({ vente, panier, remise, totalNet, paiements, cont
   ${paiementsHtml}
   ${contributionAvoir > 0 ? `<div class="ligne-total"><span>Avoir ${avoirReference || ''}</span><span>−${contributionAvoir.toLocaleString('fr-FR')} F</span></div>` : ''}
   ${estCredit && montantRestant > 1 ? `<div class="ligne-total"><span>Reste dû (crédit)</span><span>${montantRestant.toLocaleString('fr-FR')} F</span></div>` : ''}
+  ${avoirReste ? `<div class="ligne-total"><span>Reste de votre avoir</span><span>${Number(avoirReste.montant).toLocaleString('fr-FR')} F</span></div><div class="ligne-total"><span>Code à conserver</span><span>${avoirReste.reference}</span></div>` : ''}
   ${fidelite ? `<hr>
   <div class="ligne-total"><span>Statut fidélité</span><span>${fidelite.statut || '-'}</span></div>
   <div class="ligne-total"><span>Vos points</span><span>${Number(fidelite.pointsCourants || 0).toLocaleString('fr-FR')} pts</span></div>
@@ -918,6 +919,7 @@ export default function Ventes() {
       lieuNom,
       vendeurNom,
       clientNom: clientIdentifie ? clientActuel.nomComplet : '',
+      avoirReste: vente.avoirReste || null,
       estCredit,
       montantRestant: resteAPayer,
       tarifGros: vente.tarif === 'GROS',
@@ -1690,6 +1692,9 @@ export default function Ventes() {
                 ✅ Vente {confirmation.numero} enregistrée — {Number(confirmation.totalNet).toLocaleString('fr-FR')} F
                 {confirmation.montantRestantAffiche > 1 && (
                   <> — reste dû (crédit) : {confirmation.montantRestantAffiche.toLocaleString('fr-FR')} F</>
+                )}
+                {confirmation.avoirReste && (
+                  <> — reste d'avoir : {Number(confirmation.avoirReste.montant).toLocaleString('fr-FR')} F, code {confirmation.avoirReste.reference} (à noter pour le client)</>
                 )}
                 {dernierTicketHtml && (
                   <button

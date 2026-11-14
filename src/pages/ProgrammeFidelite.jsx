@@ -17,6 +17,10 @@ export default function ProgrammeFidelite() {
   const [etatInitial, setEtatInitial] = useState(null);
   const [classement, setClassement] = useState(null);
   const [bilan, setBilan] = useState(null);
+  const [depuis, setDepuis] = useState('2026-01-01');
+  const [reprise, setReprise] = useState(null); // résultat de l'aperçu (avec la date aperçue)
+  const [repriseMsg, setRepriseMsg] = useState('');
+  const [repriseEnCours, setRepriseEnCours] = useState(false);
   const [erreur, setErreur] = useState('');
   const [message, setMessage] = useState('');
   const [enCours, setEnCours] = useState(false);
@@ -76,6 +80,24 @@ export default function ProgrammeFidelite() {
       setErreur(err.message);
     } finally {
       setEnCours(false);
+    }
+  }
+
+  async function lancerReprise(appliquer) {
+    setErreur(''); setRepriseMsg(''); setRepriseEnCours(true);
+    try {
+      const r = await appelApi('POST', '/programme-fidelite/reprise', { depuis, appliquer });
+      if (appliquer) {
+        setReprise(null);
+        setRepriseMsg(`${r.amettreAJour} client(s) mis à jour.`);
+        charger();
+      } else {
+        setReprise({ ...r, depuis });
+      }
+    } catch (err) {
+      setErreur(err.message);
+    } finally {
+      setRepriseEnCours(false);
     }
   }
 
@@ -203,10 +225,44 @@ export default function ProgrammeFidelite() {
           Charger la règle 500 000 → 5 000 / 1 000 000 → 10 000
         </button>
       </div>
+      <h3 style={styles.titre}>Reprendre l'historique</h3>
       <p style={styles.muet}>
-        Pour compter l'historique des ventes avant l'allumage,
-        lancer dans la console Railway du backend : <code>node scripts/rattraperFidelite.js AAAA-MM-JJ</code> (aperçu), puis la même commande suivie de <code>appliquer</code>.
+        Avant d'allumer le programme, on peut compter les achats déjà faits par les clients identifiés (nom + téléphone), depuis une date.
+        Faites d'abord un aperçu : rien n'est modifié tant que vous n'avez pas cliqué sur Appliquer.
       </p>
+      <div style={styles.ligneForm}>
+        <label style={styles.champ}>À partir du
+          <input type="date" style={styles.input} value={depuis} onChange={(e) => { setDepuis(e.target.value); setReprise(null); setRepriseMsg(''); }} />
+        </label>
+        <button onClick={() => lancerReprise(false)} disabled={repriseEnCours || !depuis} style={styles.secondaire}>
+          {repriseEnCours ? 'Calcul…' : 'Aperçu'}
+        </button>
+        {reprise && reprise.depuis === depuis && reprise.amettreAJour > 0 && (
+          <button onClick={() => lancerReprise(true)} disabled={repriseEnCours} style={styles.principal}>
+            Appliquer à {reprise.amettreAJour} client(s)
+          </button>
+        )}
+      </div>
+      {repriseMsg && <p style={{ color: '#1E6B36', fontWeight: 700 }}>{repriseMsg}</p>}
+      {reprise && (
+        <div style={{ marginTop: 6 }}>
+          <p style={styles.muet}>
+            Aperçu depuis le {reprise.depuis} : {reprise.clientsAvecAchats} client(s) identifié(s) avec des achats, {reprise.dejaCorrects} déjà correct(s),{' '}
+            {reprise.amettreAJour} à mettre à jour. {reprise.ventesSansClientIdentifie} vente(s) ignorée(s) faute de client identifié.
+            {!reprise.programmeActif && ' Le programme est éteint : les points seront prêts pour son allumage.'}
+          </p>
+          {reprise.clients.slice(0, 100).map((c) => (
+            <div key={c.id} style={styles.ligne}>
+              <span style={{ fontWeight: 600 }}>{c.nomComplet}</span>
+              <span style={styles.muet}>
+                {f(c.montant)} F · {f(c.points)} pts · {c.achats} achat(s){c.statut ? ` · ${c.statut}` : ''}{c.bonusDisponible > 0 ? ` · remise de ${f(c.bonusDisponible)} F à la prochaine vente` : ''}
+              </span>
+            </div>
+          ))}
+          {reprise.clients.length > 100 && <p style={styles.muet}>… et {reprise.clients.length - 100} autre(s).</p>}
+          {reprise.proteges.length > 0 && <p style={styles.muet}>Non touchés (déjà suivis par le programme) : {reprise.proteges.join(', ')}.</p>}
+        </div>
+      )}
 
       {classement && classement.clients.length > 0 && (
         <>

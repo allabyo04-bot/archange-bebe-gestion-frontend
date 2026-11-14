@@ -1309,6 +1309,11 @@ export default function Ventes() {
                   <div style={styles.texteMuet}>
                     {v.lieu?.nom} — {v.vendeur ? v.vendeur.nomComplet : '—'} — {v.typeVente === 'CREDIT' ? 'Crédit' : 'Comptant'}
                   </div>
+                  {v.client && !v.client.estComptoir && (
+                    <div style={{ ...styles.texteMuet, fontWeight: 600 }}>
+                      Client : {v.client.nomComplet}{v.client.telephone ? ` — ${v.client.telephone}` : ''}
+                    </div>
+                  )}
                   {Number(v.remiseMontant) > 0 && (
                     <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--gold-deep)' }}>
                       Remise : −{Number(v.remiseMontant).toLocaleString('fr-FR')} F

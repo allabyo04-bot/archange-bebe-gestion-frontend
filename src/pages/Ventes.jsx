@@ -987,6 +987,14 @@ export default function Ventes() {
       setErreurVente('Coordonnées du client requises : choisissez ou créez le client (nom et téléphone), ou cliquez sur « Vendre sans coordonnées ».');
       return;
     }
+    // Crédit : un montant tapé dans la case « Avance versée » mais pas ajouté serait perdu.
+    if (estCredit && Number(montantAAjouter) > 0) {
+      setErreurVente(
+        `Vous avez tapé ${Number(montantAAjouter).toLocaleString('fr-FR')} F dans « Avance versée » sans cliquer sur « Ajouter ». `
+        + 'Cliquez sur « Ajouter » pour enregistrer cette avance (ou videz la case si le client ne verse rien), puis validez.',
+      );
+      return;
+    }
     if (!estCredit && paiements.length === 0 && contributionAvoir === 0) {
       setErreurVente('Ajoutez au moins un mode de paiement.');
       return;

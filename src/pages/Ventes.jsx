@@ -1338,6 +1338,16 @@ export default function Ventes() {
                       Client : {v.client.nomComplet}{v.client.telephone ? ` — ${v.client.telephone}` : ''}
                     </div>
                   )}
+                  {v.typeVente === 'CREDIT' && v.statut !== 'ANNULEE' && (() => {
+                    const paye = (v.paiements || []).reduce((t, p) => t + Number(p.montant), 0)
+                      + (v.reglements || []).reduce((t, r) => t + Number(r.montant), 0);
+                    const reste = Math.max(0, Number(v.totalNet) - paye);
+                    return (
+                      <div style={{ fontSize: 13, fontWeight: 700, color: reste > 0 ? '#b3261e' : '#2e7d32' }}>
+                        Payé {paye.toLocaleString('fr-FR')} F — {reste > 0 ? `reste dû ${reste.toLocaleString('fr-FR')} F` : 'soldée'}
+                      </div>
+                    );
+                  })()}
                   {Number(v.remiseMontant) > 0 && (
                     <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--gold-deep)' }}>
                       Remise : −{Number(v.remiseMontant).toLocaleString('fr-FR')} F

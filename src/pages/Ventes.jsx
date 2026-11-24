@@ -809,13 +809,20 @@ export default function Ventes() {
     diffuserEtatPanier({ panier: panier.map(({ prixGros, prixVente, ...ligne }) => ligne), remise, bonusFidelite: bonusApplique });
   }, [panier, remise, bonusApplique]);
 
+  // Le montant proposé est le reste à payer, SAUF pour une vente à crédit : là, le champ reste vide
+  // (c'est l'avance versée, facultative). Proposer le total en crédit faisait encaisser tout le
+  // montant quand la caissière validait sans corriger le chiffre.
   useEffect(() => {
-    if (panier.length > 0 && resteAPayer > 0) {
+    if (panier.length > 0 && resteAPayer > 0 && !estCredit) {
       setMontantAAjouter(String(resteAPayer));
-    } else if (panier.length === 0) {
+    } else if (panier.length === 0 || estCredit) {
       setMontantAAjouter('');
     }
-  }, [panier.length, resteAPayer]);
+  }, [panier.length, resteAPayer, estCredit]);
+
+  // Crédit dont les paiements couvrent déjà tout le total : on demande une confirmation (2e clic).
+  const [creditCompletConfirme, setCreditCompletConfirme] = useState(false);
+  useEffect(() => { setCreditCompletConfirme(false); }, [paiements, typeVente, panier.length]);
 
   function ajouterPaiement() {
     const montant = Number(montantAAjouter);
@@ -986,6 +993,15 @@ export default function Ventes() {
     }
     if (resteAPayer < -1) {
       setErreurVente(`Le total des paiements dépasse le montant de ${Math.abs(resteAPayer).toLocaleString('fr-FR')} F.`);
+      return;
+    }
+    if (estCredit && resteAPayer <= 1 && !creditCompletConfirme) {
+      setCreditCompletConfirme(true);
+      setErreurVente(
+        `Attention : c'est une vente à crédit, mais les paiements ajoutés (${(totalPaiements + contributionAvoir).toLocaleString('fr-FR')} F) couvrent déjà tout le total. `
+        + "Aucun reste dû ne sera enregistré. Si le client ne verse qu'une avance, retirez le paiement (✕) et ajoutez seulement le montant de l'avance. "
+        + 'Pour valider quand même, cliquez à nouveau sur Valider.',
+      );
       return;
     }
     if (!estCredit && resteAPayer > 1) {
@@ -1923,7 +1939,7 @@ export default function Ventes() {
                     type="number"
                     min="0"
                     style={{ ...styles.champInput, minWidth: 100 }}
-                    placeholder="Montant"
+                    placeholder={estCredit ? 'Avance versée (F)' : 'Montant'}
                     value={montantAAjouter}
                     onChange={(e) => setMontantAAjouter(e.target.value)}
                   />
